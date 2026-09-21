@@ -130,7 +130,7 @@
       </div>
       <div id="statusBadge" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-amber-100 text-amber-700">
         <i data-lucide="clock" class="w-4 h-4"></i>
-        <span id="statusLabel">Waiting for shop</span>
+        <span>Waiting for shop</span>
       </div>
       <p id="queuePosition" class="text-xs text-slate-500 mt-3"></p>
       <p id="waitEstimate" class="text-xs text-purple-600 font-medium mt-1"></p>
@@ -162,9 +162,11 @@ let myOrderCode = null;
 let statusWatcher = null;
 let syncingStatus = false;
 
+/* ── Escape ── */
 function escapeHTML(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function escapeAttr(s){return escapeHTML(s)}
 
+/* ── Local storage ── */
 function readDB(){ try{return JSON.parse(localStorage.getItem(DB_KEY)||'{}')}catch{return{}} }
 function writeDB(db){ try{localStorage.setItem(DB_KEY,JSON.stringify(db));return true}catch(e){return false} }
 function cacheOrder(o){
@@ -179,6 +181,7 @@ function savePendingUpload(p){const a=getPendingUploads().filter(x=>x.orderId!==
 function removePendingUpload(id){localStorage.setItem(PENDING_KEY,JSON.stringify(getPendingUploads().filter(x=>x.orderId!==id)))}
 function bumpAttempt(id){const a=getPendingUploads();const i=a.findIndex(x=>x.orderId===id);if(i>=0){a[i]._attempts=(a[i]._attempts||0)+1;localStorage.setItem(PENDING_KEY,JSON.stringify(a))}}
 
+/* ── API ── */
 async function apiGet(params){
   const u=new URL(APPS_SCRIPT_URL); Object.entries(params||{}).forEach(([k,v])=>u.searchParams.set(k,v));
   const r=await fetch(u.toString(),{method:'GET',cache:'no-store'});
@@ -186,7 +189,11 @@ async function apiGet(params){
   return r.json();
 }
 async function apiPost(payload){
-  const r=await fetch(APPS_SCRIPT_URL,{method:'POST',mode:'cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)});
+  const r=await fetch(APPS_SCRIPT_URL,{
+    method:'POST',mode:'cors',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify(payload)
+  });
   const t=await r.text(); let j={}; try{j=JSON.parse(t)}catch{}
   if(!r.ok)throw new Error('HTTP '+r.status);
   if(j.success===false)throw new Error(j.error||'Request failed');
@@ -203,6 +210,7 @@ async function retryPendingUploads(){
   }
 }
 
+/* ── History ── */
 function saveMyHistory(order){
   const h=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]').filter(x=>x.orderId!==order.id);
   h.unshift({orderId:order.id,code:order.displayCode,at:Date.now()});
@@ -250,6 +258,7 @@ function go(screen){
   if(screen==='home')    renderRecentOrders();
 }
 
+/* ── File handling ── */
 const dz=document.getElementById('dropzone'), fi=document.getElementById('fileInput');
 dz.onclick=()=>fi.click();
 fi.onchange=e=>{handleFiles([...e.target.files]); fi.value=''};
@@ -311,6 +320,7 @@ function fillConfirm(){
   lucide.createIcons();
 }
 
+/* ── Submit ── */
 async function submitOrder(){
   if(!files.length)return;
   const btn=document.getElementById('sendBtn');
@@ -319,7 +329,7 @@ async function submitOrder(){
   lucide.createIcons();
 
   const orderId='ORD-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,6).toUpperCase();
-  const code=String(Math.floor(100000+Math.random()*900000)); // 6 digits
+  const code=String(Math.floor(100000+Math.random()*900000));
   const payload={
     orderId, code,
     files:files.map(f=>({name:f.name,type:f.type,size:f.size,dataUrl:f.dataUrl})),
@@ -343,7 +353,10 @@ async function submitOrder(){
     const result=await uploadOrder(payload);
     if(result&&result.order){ cacheOrder(normalizeServerOrder(result.order)); removePendingUpload(orderId); }
     else if(result&&result.success){ removePendingUpload(orderId); }
-  }catch(e){ toast('⚠️ Upload is queued — will retry'); console.warn(e); }
+  }catch(e){
+    toast('⚠️ Upload is queued — will retry');
+    console.warn('Submit failed:',e.message);
+  }
 
   btn.disabled=false;
   btn.innerHTML='<i data-lucide="send" class="w-5 h-5"></i> Send to Shop';
@@ -428,21 +441,24 @@ function renderWaitEstimate(orderId){
   const mins=Math.ceil(((ahead+1)*45)/60);
   el.textContent= mins<=1?'⏱ Under a minute':`⏱ About ${mins} min wait`;
 }
+
+/* ── FIXED: rebuild badge each time so Lucide's <svg> replacement doesn't break it ── */
 function renderStatus(status){
-  const el=document.getElementById('statusBadge'), label=document.getElementById('statusLabel'), icon=el.querySelector('i');
-  const map={
-    waiting:['Waiting for shop','bg-amber-100 text-amber-700','clock'],
-    printing:['Printing now…','bg-blue-100 text-blue-700','printer'],
-    printed:['Ready — collect!','bg-green-100 text-green-700','check-circle-2'],
-    collected:['Collected ✓','bg-emerald-100 text-emerald-700','check-circle-2'],
-    failed:['Cancelled','bg-red-100 text-red-700','x-circle']
+  const el = document.getElementById('statusBadge');
+  if (!el) return;
+  const map = {
+    waiting:  ['Waiting for shop','bg-amber-100 text-amber-700',    'clock'],
+    printing: ['Printing now…',    'bg-blue-100 text-blue-700',      'printer'],
+    printed:  ['Ready — collect!', 'bg-green-100 text-green-700',    'check-circle-2'],
+    collected:['Collected ✓',      'bg-emerald-100 text-emerald-700','check-circle-2'],
+    failed:   ['Cancelled',        'bg-red-100 text-red-700',        'x-circle']
   };
-  const [t,c,ico]=map[status]||map.waiting;
-  el.className='inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium '+c;
-  label.textContent=t;
-  icon.setAttribute('data-lucide',ico);
+  const [t, c, ico] = map[status] || map.waiting;
+  el.className = 'inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ' + c;
+  el.innerHTML = `<i data-lucide="${ico}" class="w-4 h-4"></i><span>${t}</span>`;
   lucide.createIcons();
 }
+
 function toast(msg){
   const t=document.getElementById('toast');
   t.textContent=msg; t.style.opacity=1;
