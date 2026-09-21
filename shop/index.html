@@ -9,62 +9,25 @@
 <script src="https://unpkg.com/lucide@latest"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <style>
-  body {
-    font-family: 'Inter', sans-serif;
-    background: linear-gradient(135deg, #faf5ff 0%, #ffffff 40%, #fdf2f8 100%);
-    min-height: 100vh;
-    color: #1f1b2e;
-  }
-  .glass {
-    background: rgba(255,255,255,0.85);
-    backdrop-filter: blur(14px);
-    border: 1px solid rgba(216,180,254,0.5);
-    box-shadow: 0 4px 24px -8px rgba(168,85,247,0.15);
-  }
-  .grad-text {
-    background: linear-gradient(90deg, #9333ea, #ec4899);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  .grad-btn {
-    background: linear-gradient(90deg, #9333ea, #ec4899);
-    transition: all .25s ease;
-  }
-  .grad-btn:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: 0 12px 30px -8px rgba(236,72,153,.5);
-  }
-  .grad-btn:disabled { opacity: .4; cursor: not-allowed; }
-  .shadow-soft { box-shadow: 0 10px 40px -10px rgba(168,85,247,.25); }
-  .shadow-glow { box-shadow: 0 0 40px rgba(236,72,153,.35); }
-  .pulse-dot {
-    width: 8px; height: 8px; border-radius: 9999px;
-    background: #22c55e; box-shadow: 0 0 8px #22c55e;
-    animation: pulse 2s ease-in-out infinite;
-  }
+  body { font-family:'Inter',sans-serif; background:linear-gradient(135deg,#faf5ff 0%,#ffffff 40%,#fdf2f8 100%); min-height:100vh; color:#1f1b2e; }
+  .glass { background:rgba(255,255,255,0.85); backdrop-filter:blur(14px); border:1px solid rgba(216,180,254,0.5); box-shadow:0 4px 24px -8px rgba(168,85,247,0.15); }
+  .grad-text { background:linear-gradient(90deg,#9333ea,#ec4899); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .grad-btn { background:linear-gradient(90deg,#9333ea,#ec4899); transition:all .25s ease; }
+  .grad-btn:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 12px 30px -8px rgba(236,72,153,.5); }
+  .grad-btn:disabled { opacity:.4; cursor:not-allowed; }
+  .shadow-soft { box-shadow:0 10px 40px -10px rgba(168,85,247,.25); }
+  .shadow-glow { box-shadow:0 0 40px rgba(236,72,153,.35); }
+  .pulse-dot { width:8px; height:8px; border-radius:9999px; background:#22c55e; box-shadow:0 0 8px #22c55e; animation:pulse 2s ease-in-out infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-  .fade-up { animation: fadeUp .4s ease-out; }
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(8px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  .scroll::-webkit-scrollbar { width: 6px; }
-  .scroll::-webkit-scrollbar-thumb { background: rgba(168,85,247,0.4); border-radius: 3px; }
-
-  .editable {
-    background: rgba(250,245,255,0.9);
-    border: 1px solid rgba(216,180,254,0.7);
-    border-radius: 0.75rem;
-    padding: 0.5rem 0.75rem;
-    color: #1f1b2e; outline: none;
-    transition: all .2s;
-    width: 100%; text-align: center; font-weight: 600;
-  }
-  .editable:focus { border-color: #ec4899; box-shadow: 0 0 0 3px rgba(236,72,153,0.15); }
-
-  .modal-backdrop { background: rgba(31,27,46,0.75); backdrop-filter: blur(8px); }
-  .toggle { transition: all .2s ease; }
-  .toggle .knob { transition: all .2s ease; }
+  .fade-up { animation:fadeUp .4s ease-out; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  .scroll::-webkit-scrollbar { width:6px; }
+  .scroll::-webkit-scrollbar-thumb { background:rgba(168,85,247,0.4); border-radius:3px; }
+  .editable { background:rgba(250,245,255,0.9); border:1px solid rgba(216,180,254,0.7); border-radius:0.75rem; padding:0.5rem 0.75rem; color:#1f1b2e; outline:none; transition:all .2s; width:100%; text-align:center; font-weight:600; }
+  .editable:focus { border-color:#ec4899; box-shadow:0 0 0 3px rgba(236,72,153,0.15); }
+  .modal-backdrop { background:rgba(31,27,46,0.75); backdrop-filter:blur(8px); }
+  .toggle { transition:all .2s ease; }
+  .toggle .knob { transition:all .2s ease; }
 </style>
 </head>
 <body class="p-6">
@@ -82,20 +45,16 @@
       </div>
     </div>
     <div class="flex items-center gap-2">
-      <button onclick="toggleSound()" id="soundBtn" title="Toggle alert sound"
-        class="glass p-2 rounded-full text-slate-700 hover:text-pink-500 transition">
+      <button onclick="toggleSound()" id="soundBtn" title="Toggle alert sound" class="glass p-2 rounded-full text-slate-700 hover:text-pink-500 transition">
         <i data-lucide="volume-2" class="w-4 h-4"></i>
       </button>
-      <button onclick="openQR()" title="Show QR code for customers"
-        class="glass p-2 rounded-full text-slate-700 hover:text-pink-500 transition">
+      <button onclick="openQR()" title="Show QR code for customers" class="glass p-2 rounded-full text-slate-700 hover:text-pink-500 transition">
         <i data-lucide="qr-code" class="w-4 h-4"></i>
       </button>
-      <button onclick="openSetup()" title="Printer setup"
-        class="glass p-2 rounded-full text-slate-700 hover:text-pink-500 transition">
+      <button onclick="openSetup()" title="Printer setup" class="glass p-2 rounded-full text-slate-700 hover:text-pink-500 transition">
         <i data-lucide="settings" class="w-4 h-4"></i>
       </button>
-      <button onclick="refreshPrinters()" title="Re-detect printers"
-        class="glass p-2 rounded-full text-slate-700 hover:text-pink-500 transition">
+      <button onclick="refreshPrinters()" title="Re-detect printers" class="glass p-2 rounded-full text-slate-700 hover:text-pink-500 transition">
         <i data-lucide="refresh-cw" class="w-4 h-4"></i>
       </button>
       <div class="flex items-center gap-2 glass px-3 py-1.5 rounded-full text-xs">
@@ -111,11 +70,11 @@
   <div class="glass rounded-3xl p-5 mb-6">
     <div class="flex items-center justify-between mb-3">
       <h2 class="font-semibold flex items-center gap-2 text-slate-800">
-        <i data-lucide="hard-drive" class="w-4 h-4 text-pink-500"></i>
-        Detected Printers
+        <i data-lucide="hard-drive" class="w-4 h-4 text-pink-500"></i> Detected Printers
       </h2>
       <div class="flex items-center gap-2">
-        <span id="printerCount" class="text-xs text-slate-500">0 found</span><span id="syncStatus" class="ml-2 text-[10px] text-emerald-600">Live</span>
+        <span id="printerCount" class="text-xs text-slate-500">0 found</span>
+        <span id="syncStatus" class="ml-2 text-[10px] text-emerald-600">Live</span>
         <button onclick="refreshPrinters()" class="text-xs text-purple-600 hover:text-pink-500 font-medium flex items-center gap-1">
           <i data-lucide="refresh-cw" class="w-3 h-3"></i> Re-detect
         </button>
@@ -129,7 +88,6 @@
   </div>
 
   <div class="grid grid-cols-3 gap-6">
-
     <div class="col-span-2 space-y-6">
 
       <div id="noActiveOrder" class="glass rounded-3xl p-12 text-center">
@@ -140,8 +98,7 @@
         <p class="text-sm text-slate-500 mb-6">Start the next customer when ready</p>
         <button onclick="startNextOrder()" id="startNextBtn"
           class="grad-btn disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-6 py-3 rounded-2xl flex items-center gap-2 mx-auto shadow-soft">
-          <i data-lucide="play" class="w-5 h-5"></i>
-          Start Next Order
+          <i data-lucide="play" class="w-5 h-5"></i> Start Next Order
         </button>
         <p class="text-xs text-slate-400 mt-4">
           <span id="waitingHint">0 orders waiting</span>
@@ -155,14 +112,11 @@
             <p id="jpId" class="font-mono text-sm text-slate-700">#---</p>
           </div>
           <div class="flex items-center gap-2 flex-wrap justify-end">
-            <span id="jpCode" class="px-2.5 py-1 rounded-full text-xs bg-purple-100 text-purple-700 border border-purple-300 font-mono font-bold tracking-widest">
-              ----
-            </span>
+            <span id="jpCode" class="px-2.5 py-1 rounded-full text-xs bg-purple-100 text-purple-700 border border-purple-300 font-mono font-bold tracking-widest">----</span>
             <span id="jpStatusBadge" class="px-2.5 py-1 rounded-full text-xs bg-amber-100 text-amber-700 border border-amber-300">
               <span id="jpStatus">waiting</span>
             </span>
-            <button onclick="cancelOrder()" title="Cancel order"
-              class="p-2 rounded-full hover:bg-red-100 text-red-500 transition">
+            <button onclick="cancelOrder()" title="Cancel order" class="p-2 rounded-full hover:bg-red-100 text-red-500 transition">
               <i data-lucide="x-circle" class="w-4 h-4"></i>
             </button>
           </div>
@@ -202,16 +156,13 @@
         <div class="grid grid-cols-3 gap-3 mt-3">
           <div class="p-3 rounded-xl bg-amber-50 border border-amber-100">
             <p class="text-xs text-amber-700 mb-1.5 flex items-center gap-1">
-              <i data-lucide="lock" class="w-3 h-3"></i>
-              Private · Amount (₹)
+              <i data-lucide="lock" class="w-3 h-3"></i> Private · Amount (₹)
             </p>
-            <input id="editPrice" type="number" min="0" placeholder="Set at end"
-              oninput="onEdit()" class="editable" />
+            <input id="editPrice" type="number" min="0" placeholder="Set at end" oninput="onEdit()" class="editable" />
           </div>
           <div class="col-span-2 p-3 rounded-xl bg-purple-50">
             <p class="text-xs text-slate-500 mb-1.5">Notes (private)</p>
-            <input id="editNotes" type="text" placeholder="Optional remark"
-              oninput="onEdit()" class="editable text-left text-sm font-normal" />
+            <input id="editNotes" type="text" placeholder="Optional remark" oninput="onEdit()" class="editable text-left text-sm font-normal" />
           </div>
         </div>
 
@@ -231,15 +182,24 @@
 
           <div id="manualOverride" class="hidden mb-4 p-3 rounded-xl bg-purple-50">
             <p class="text-xs text-slate-500 mb-1.5">Manual printer selection</p>
-            <select id="manualPrinter"
-              class="w-full bg-white border border-purple-200 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-800 outline-none focus:border-pink-400 cursor-pointer">
-            </select>
+            <select id="manualPrinter" class="w-full bg-white border border-purple-200 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-800 outline-none focus:border-pink-400 cursor-pointer"></select>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2 mb-3">
+            <button onclick="downloadAllFiles()" class="glass text-slate-700 text-xs font-medium py-2.5 rounded-xl flex items-center justify-center gap-1.5 hover:shadow-soft">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i> Download All
+            </button>
+            <button onclick="openAllFiles()" class="glass text-slate-700 text-xs font-medium py-2.5 rounded-xl flex items-center justify-center gap-1.5 hover:shadow-soft">
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Open All
+            </button>
+            <button onclick="printAllFiles()" class="glass text-slate-700 text-xs font-medium py-2.5 rounded-xl flex items-center justify-center gap-1.5 hover:shadow-soft">
+              <i data-lucide="printer" class="w-3.5 h-3.5"></i> Print All
+            </button>
           </div>
 
           <button id="printBtn" onclick="sendToPrinter()"
             class="grad-btn w-full text-white font-semibold py-4 rounded-2xl flex items-center justify-center gap-2 shadow-soft">
-            <i data-lucide="printer" class="w-5 h-5"></i>
-            Send to Printer
+            <i data-lucide="printer" class="w-5 h-5"></i> Send to Printer
           </button>
 
           <div id="printProgress" class="hidden mt-4">
@@ -258,8 +218,7 @@
     <div class="glass rounded-3xl p-6 max-h-[calc(100vh-8rem)] overflow-hidden flex flex-col">
       <div class="flex items-center justify-between mb-4">
         <h2 class="font-semibold flex items-center gap-2 text-slate-800">
-          <i data-lucide="list-ordered" class="w-4 h-4 text-pink-500"></i>
-          Queue
+          <i data-lucide="list-ordered" class="w-4 h-4 text-pink-500"></i> Queue
         </h2>
         <button onclick="clearAll()" class="text-xs text-slate-500 hover:text-pink-500">Clear</button>
       </div>
@@ -270,6 +229,7 @@
   </div>
 </div>
 
+<!-- Setup Modal -->
 <div id="setupModal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-6">
   <div class="bg-white rounded-3xl w-full max-w-lg flex flex-col overflow-hidden fade-up shadow-2xl">
     <div class="flex items-center justify-between p-5 border-b border-purple-100">
@@ -286,25 +246,20 @@
         <i data-lucide="x" class="w-5 h-5"></i>
       </button>
     </div>
-
     <div class="p-5 space-y-4 overflow-y-auto scroll max-h-[70vh]">
       <div class="p-4 rounded-2xl bg-purple-50 border border-purple-100">
         <p class="text-sm font-medium text-slate-800 mb-2 flex items-center gap-2">
-          <i data-lucide="wand-2" class="w-4 h-4 text-purple-600"></i>
-          Auto-Detect
+          <i data-lucide="wand-2" class="w-4 h-4 text-purple-600"></i> Auto-Detect
         </p>
         <p class="text-xs text-slate-500 mb-3">Try to read printers from your browser.</p>
         <button onclick="autoDetectPrinters()" class="grad-btn text-white font-medium text-sm px-4 py-2 rounded-xl flex items-center gap-2">
-          <i data-lucide="search" class="w-4 h-4"></i>
-          Detect Now
+          <i data-lucide="search" class="w-4 h-4"></i> Detect Now
         </button>
         <p id="detectStatus" class="text-xs text-slate-500 mt-2"></p>
       </div>
-
       <div class="p-4 rounded-2xl bg-purple-50 border border-purple-100">
         <p class="text-sm font-medium text-slate-800 mb-3 flex items-center gap-2">
-          <i data-lucide="plus-circle" class="w-4 h-4 text-purple-600"></i>
-          Add Manually
+          <i data-lucide="plus-circle" class="w-4 h-4 text-purple-600"></i> Add Manually
         </p>
         <div class="space-y-3">
           <input id="setupName" type="text" placeholder="Printer name (e.g. HP LaserJet Pro M404)"
@@ -321,30 +276,25 @@
             <input type="checkbox" id="setupDefault" class="rounded" /> Set as default
           </label>
           <button onclick="addManualPrinter()" class="grad-btn text-white font-medium text-sm px-4 py-2 rounded-xl flex items-center gap-2">
-            <i data-lucide="plus" class="w-4 h-4"></i>
-            Add Printer
+            <i data-lucide="plus" class="w-4 h-4"></i> Add Printer
           </button>
         </div>
       </div>
-
       <div class="p-4 rounded-2xl bg-purple-50 border border-purple-100">
         <p class="text-sm font-medium text-slate-800 mb-3 flex items-center gap-2">
-          <i data-lucide="list" class="w-4 h-4 text-purple-600"></i>
-          Configured Printers
+          <i data-lucide="list" class="w-4 h-4 text-purple-600"></i> Configured Printers
         </p>
         <div id="setupList" class="space-y-2 text-sm"></div>
       </div>
     </div>
-
     <div class="p-4 border-t border-purple-100 flex items-center justify-between text-xs text-slate-500">
       <span>Saved to this browser</span>
-      <button onclick="closeSetup()" class="px-4 py-2 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-700 text-sm">
-        Done
-      </button>
+      <button onclick="closeSetup()" class="px-4 py-2 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-700 text-sm">Done</button>
     </div>
   </div>
 </div>
 
+<!-- QR Modal -->
 <div id="qrModal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-6">
   <div class="bg-white rounded-3xl w-full max-w-sm flex flex-col overflow-hidden fade-up shadow-2xl">
     <div class="flex items-center justify-between p-5 border-b border-purple-100">
@@ -364,19 +314,17 @@
     <div class="p-6 text-center">
       <div id="qrTarget" class="inline-block p-4 bg-white rounded-2xl border border-purple-100"></div>
       <p class="text-xs text-slate-500 mt-4 break-all" id="qrUrl"></p>
-      <p class="text-[11px] text-slate-400 mt-2">
-        Print this and stick it on the counter
-      </p>
+      <p class="text-[11px] text-slate-400 mt-2">Print this and stick it on the counter</p>
     </div>
     <div class="p-4 border-t border-purple-100 flex justify-center">
       <button onclick="printQR()" class="grad-btn text-white font-medium text-sm px-6 py-2.5 rounded-xl flex items-center gap-2">
-        <i data-lucide="printer" class="w-4 h-4"></i>
-        Print QR
+        <i data-lucide="printer" class="w-4 h-4"></i> Print QR
       </button>
     </div>
   </div>
 </div>
 
+<!-- Viewer Modal -->
 <div id="viewerModal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-6">
   <div class="bg-white rounded-3xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden fade-up shadow-2xl">
     <div class="flex items-center justify-between p-5 border-b border-purple-100">
@@ -407,9 +355,7 @@
     </div>
     <div class="p-4 border-t border-purple-100 flex items-center justify-between text-xs text-slate-500">
       <span>🔒 Preview only</span>
-      <button onclick="closeViewer()" class="px-4 py-2 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-700 text-sm">
-        Close
-      </button>
+      <button onclick="closeViewer()" class="px-4 py-2 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-700 text-sm">Close</button>
     </div>
   </div>
 </div>
@@ -419,9 +365,9 @@
 <script>
 lucide.createIcons();
 
-// ── YOUR APPS SCRIPT WEB APP URL (NEW) ──
+// ── CONFIG ──
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyRZibfR-KZIp_tRuqKl8vSdG7efhFJ6p3ZRkA9JrwNL8IV7m4I0TC2O6Tlyq1cKs4jwg/exec';
-const SHOP_TOKEN = 'PE-shop-2026-9fK7xQ2mL8vN4pR6sT1wZ';
+const SHOP_TOKEN = 'CHANGE_THIS_SHOP_TOKEN';
 
 const DB_KEY = 'xerox_orders';
 const PRINTERS_KEY = 'xerox_printers';
@@ -429,61 +375,107 @@ const SOUND_KEY = 'xerox_sound';
 
 let detectedPrinters = [];
 let activeJob = null;
+let activeFiles = [];
 let editedValues = {};
 let viewerZoomLevel = 1;
 let autoRouting = true;
 let soundEnabled = localStorage.getItem(SOUND_KEY) !== 'false';
 let lastWaitingCount = 0;
 let isSyncing = false;
+let syncFailCount = 0;
 
-const readDB = () => {
-  try { return JSON.parse(localStorage.getItem(DB_KEY) || '{}'); }
-  catch { return {}; }
-};
-const writeDB = (db) => {
-  try {
-    localStorage.setItem(DB_KEY, JSON.stringify(db));
-    return true;
-  } catch (e) { console.error(e); return false; }
-};
+// ── Escape ──
+function escapeHTML(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function escapeAttr(s){return escapeHTML(s)}
 
-/* ── SYNC ORDERS FROM GOOGLE DRIVE ── */
+// ── Storage ──
+const readDB = () => { try { return JSON.parse(localStorage.getItem(DB_KEY) || '{}'); } catch { return {}; } };
+const writeDB = (db) => { try { localStorage.setItem(DB_KEY, JSON.stringify(db)); return true; } catch (e) { console.error(e); return false; } };
+
+// ── Server sync ──
 async function syncOrdersFromDrive() {
   if (isSyncing) return; isSyncing = true;
   try {
-    const u = new URL(APPS_SCRIPT_URL); u.searchParams.set('action','ORDERS'); u.searchParams.set('token',SHOP_TOKEN);
-    const res = await fetch(u.toString(), {cache:'no-store'}); if(!res.ok) throw new Error('HTTP '+res.status);
-    const data = await res.json(); if(!data.success || !Array.isArray(data.orders)) throw new Error(data.error||'Invalid orders response');
-    const db=readDB(); let changed=false, newCount=0;
-    data.orders.forEach(o=>{ const n=normalizeServerOrder(o); if(!db[n.id]){newCount++;changed=true} else if(JSON.stringify(db[n.id])!==JSON.stringify(n)){changed=true} db[n.id]=n; });
-    // Remove very old local cache entries that no longer exist server-side only after 24h.
-    const serverIds=new Set(data.orders.map(o=>o.orderId));
-    Object.keys(db).forEach(id=>{if(!serverIds.has(id)&&Date.now()-(db[id].createdAt||0)>86400000){delete db[id];changed=true}});
-    if(changed) writeDB(db); renderQueue();
-    if(newCount && !activeJob){playBeep();toast('🆕 '+newCount+' new order(s)')}
-  } catch(e){console.warn('Server sync failed:',e.message); const s=document.getElementById('syncStatus'); if(s)s.textContent='Offline / retrying…'}
-  finally{isSyncing=false}
-}
-function normalizeServerOrder(o){return {id:o.orderId,orderId:o.orderId,displayCode:o.code,code:o.code,files:o.files||[],color:!!o.color,duplex:!!o.duplex,copies:o.copies||1,printStatus:o.printStatus||'waiting',createdAt:new Date(o.timestamp||Date.now()).getTime(),updatedAt:o.updatedAt?new Date(o.updatedAt).getTime():Date.now(),price:o.price||0,priceFinal:o.priceFinal??null,paymentStatus:o.paymentStatus||'pending',notes:o.notes||'',printer:o.printer||'',printerId:o.printerId||'',reprintCount:o.reprintCount||0};}
-async function updateServerOrder(orderId, changes){
-  return fetch(APPS_SCRIPT_URL,{method:'POST',mode:'cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'UPDATE_ORDER',token:SHOP_TOKEN,orderId,...changes})}).then(async r=>{const t=await r.text();let j={};try{j=JSON.parse(t)}catch{}if(!r.ok||j.success===false)throw new Error(j.error||'Update failed');return j});
+    const u = new URL(APPS_SCRIPT_URL);
+    u.searchParams.set('action','ORDERS');
+    u.searchParams.set('token',SHOP_TOKEN);
+    const res = await fetch(u.toString(), {cache:'no-store'});
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    if (!data.success || !Array.isArray(data.orders)) throw new Error(data.error||'Invalid orders response');
+    const db = readDB(); let changed = false, newCount = 0;
+    data.orders.forEach(o => {
+      const n = normalizeServerOrder(o);
+      if (!db[n.id]) { newCount++; changed = true; }
+      else if (JSON.stringify(db[n.id]) !== JSON.stringify(n)) { changed = true; }
+      db[n.id] = n;
+    });
+    const serverIds = new Set(data.orders.map(o => o.orderId));
+    Object.keys(db).forEach(id => {
+      if (!serverIds.has(id) && Date.now() - (db[id].createdAt||0) > 86400000) { delete db[id]; changed = true; }
+    });
+    if (changed) writeDB(db);
+    renderQueue();
+    if (newCount && !activeJob) { playBeep(); toast('🆕 '+newCount+' new order(s)'); }
+    syncFailCount = 0;
+    const s = document.getElementById('syncStatus');
+    if (s) { s.textContent = 'Live'; s.className = 'ml-2 text-[10px] text-emerald-600'; }
+  } catch (e) {
+    console.warn('Server sync failed:', e.message);
+    syncFailCount++;
+    const s = document.getElementById('syncStatus');
+    if (s) {
+      s.textContent = syncFailCount > 3 ? 'Offline' : 'Retrying…';
+      s.className = 'ml-2 text-[10px] ' + (syncFailCount > 3 ? 'text-red-500' : 'text-amber-500');
+    }
+  } finally { isSyncing = false; }
 }
 
-/* ── SOUND ── */
+function normalizeServerOrder(o){
+  return {
+    id:o.orderId, orderId:o.orderId,
+    displayCode:o.code, code:o.code,
+    files:(o.files||[]).map(f=>({...f})),
+    color:!!o.color, duplex:!!o.duplex, copies:o.copies||1,
+    printStatus:o.printStatus||'waiting',
+    createdAt:new Date(o.timestamp||Date.now()).getTime(),
+    updatedAt:o.updatedAt?new Date(o.updatedAt).getTime():Date.now(),
+    price:o.price||0, priceFinal:o.priceFinal??null,
+    paymentStatus:o.paymentStatus||'pending',
+    notes:o.notes||'', printer:o.printer||'', printerId:o.printerId||'',
+    reprintCount:o.reprintCount||0
+  };
+}
+async function updateServerOrder(orderId, changes){
+  const r = await fetch(APPS_SCRIPT_URL, {
+    method:'POST', mode:'cors',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body: JSON.stringify({action:'UPDATE_ORDER', token:SHOP_TOKEN, orderId, ...changes})
+  });
+  const t = await r.text(); let j = {}; try { j = JSON.parse(t); } catch {}
+  if (!r.ok || j.success === false) throw new Error(j.error || 'Update failed');
+  return j;
+}
+
+// ── Sound ──
+let audioCtx = null;
+function unlockAudio(){ try { if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); } catch {} }
+document.addEventListener('click', unlockAudio, {once:true});
+document.addEventListener('keydown', unlockAudio, {once:true});
+
 function playBeep() {
   if (!soundEnabled) return;
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const g = ctx.createGain();
-    osc.connect(g); g.connect(ctx.destination);
+    if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.connect(g); g.connect(audioCtx.destination);
     osc.frequency.value = 880;
-    g.gain.setValueAtTime(0.2, ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-    osc.start(); osc.stop(ctx.currentTime + 0.4);
-  } catch (e) { /* silent */ }
+    g.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+  } catch (e) {}
 }
-
 function toggleSound() {
   soundEnabled = !soundEnabled;
   localStorage.setItem(SOUND_KEY, soundEnabled);
@@ -491,114 +483,75 @@ function toggleSound() {
   toast(soundEnabled ? '🔔 Sound on' : '🔕 Sound off');
 }
 function updateSoundIcon() {
-  const btn = document.getElementById('soundBtn');
-  if (!btn) return;
+  const btn = document.getElementById('soundBtn'); if (!btn) return;
   btn.innerHTML = `<i data-lucide="${soundEnabled ? 'volume-2' : 'volume-x'}" class="w-4 h-4"></i>`;
   lucide.createIcons();
 }
-
 function announceReady(code) {
   try {
-    const msg = new SpeechSynthesisUtterance(
-      `Order ${code.split('').join(' ')}, ready for collection`
-    );
-    msg.rate = 0.9;
-    msg.pitch = 1.0;
+    const msg = new SpeechSynthesisUtterance(`Order ${code.split('').join(' ')}, ready for collection`);
+    msg.rate = 0.9; msg.pitch = 1.0;
     speechSynthesis.speak(msg);
-  } catch (e) { /* unsupported */ }
+  } catch (e) {}
 }
 
-/* ── PRINTERS ── */
+// ── Printers ──
 async function refreshPrinters() {
   detectedPrinters = [];
-
   try {
     if (navigator.printers && navigator.printers.getPrinters) {
       const list = await navigator.printers.getPrinters();
       if (Array.isArray(list) && list.length) {
         detectedPrinters = list.map(p => ({
-          id: p.name || p.id,
-          name: p.name || p.id,
-          isDefault: !!p.isDefault,
-          isOnline: true,
-          capabilities: {
-            color: !!(p.capabilities?.color),
-            duplex: !!(p.capabilities?.duplex)
-          },
-          source: 'browser',
+          id: p.name || p.id, name: p.name || p.id,
+          isDefault: !!p.isDefault, isOnline: true,
+          capabilities: { color: !!(p.capabilities?.color), duplex: !!(p.capabilities?.duplex) },
+          source: 'browser'
         }));
       }
     }
-  } catch (e) { /* ignore */ }
-
+  } catch (e) {}
   if (detectedPrinters.length === 0) {
     const saved = JSON.parse(localStorage.getItem(PRINTERS_KEY) || '[]');
-    if (saved.length) {
-      detectedPrinters = saved.map(p => ({ ...p, source: 'saved', isOnline: true }));
-    }
+    if (saved.length) detectedPrinters = saved.map(p => ({ ...p, source:'saved', isOnline:true }));
   }
-
-  renderPrinterList();
-  renderSetupList();
-  updateManualDropdown();
-  updateRoutingHint();
+  renderPrinterList(); renderSetupList(); updateManualDropdown(); updateRoutingHint();
 }
-
 function renderPrinterList() {
-  const wrap = document.getElementById('printerList');
-  if (!wrap) return;
+  const wrap = document.getElementById('printerList'); if (!wrap) return;
   document.getElementById('printerCount').textContent = detectedPrinters.length + ' found';
-
   if (detectedPrinters.length === 0) {
-    wrap.innerHTML = `
-      <div class="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-3 py-1.5">
-        <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
-        No printers detected — <button onclick="openSetup()" class="underline font-medium">add one</button>
-      </div>`;
-    lucide.createIcons();
-    return;
+    wrap.innerHTML = `<div class="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-3 py-1.5">
+      <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+      No printers detected — <button onclick="openSetup()" class="underline font-medium">add one</button>
+    </div>`;
+    lucide.createIcons(); return;
   }
-
   wrap.innerHTML = detectedPrinters.map(p => {
     const badges = [];
-    if (p.capabilities?.color)  badges.push('🎨 Colour');
+    if (p.capabilities?.color) badges.push('🎨 Colour');
     if (p.capabilities?.duplex) badges.push('⇄ Duplex');
-    if (p.isDefault)            badges.push('★ Default');
-    return `
-      <div class="flex items-center gap-2 px-3 py-1.5 rounded-full ${p.isDefault ? 'bg-gradient-to-r from-purple-100 to-pink-100 border-pink-300' : 'bg-purple-50 border-purple-200'} border text-xs">
-        <span class="w-1.5 h-1.5 rounded-full ${p.isOnline ? 'bg-green-500' : 'bg-red-500'}"></span>
-        <span class="font-medium text-slate-800">${escapeHTML(p.name)}</span>
-        ${badges.length ? `<span class="text-[10px] text-slate-500">${badges.join(' · ')}</span>` : ''}
-      </div>`;
+    if (p.isDefault) badges.push('★ Default');
+    return `<div class="flex items-center gap-2 px-3 py-1.5 rounded-full ${p.isDefault ? 'bg-gradient-to-r from-purple-100 to-pink-100 border-pink-300' : 'bg-purple-50 border-purple-200'} border text-xs">
+      <span class="w-1.5 h-1.5 rounded-full ${p.isOnline ? 'bg-green-500' : 'bg-red-500'}"></span>
+      <span class="font-medium text-slate-800">${escapeHTML(p.name)}</span>
+      ${badges.length ? `<span class="text-[10px] text-slate-500">${badges.join(' · ')}</span>` : ''}
+    </div>`;
   }).join('');
   lucide.createIcons();
 }
-
-function escapeHTML(s) {
-  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
-}
-function escapeAttr(s) {
-  return String(s).replace(/['\\]/g, "\\$&");
-}
-
 async function autoDetectPrinters() {
   const status = document.getElementById('detectStatus');
   status.textContent = 'Detecting…';
   detectedPrinters = [];
-
   try {
     if (navigator.printers && navigator.printers.getPrinters) {
       const list = await navigator.printers.getPrinters();
       if (Array.isArray(list) && list.length) {
         detectedPrinters = list.map(p => ({
-          id: p.name || p.id,
-          name: p.name || p.id,
-          isDefault: !!p.isDefault,
-          isOnline: true,
-          capabilities: {
-            color: !!(p.capabilities?.color),
-            duplex: !!(p.capabilities?.duplex)
-          },
+          id: p.name || p.id, name: p.name || p.id,
+          isDefault: !!p.isDefault, isOnline: true,
+          capabilities: { color: !!(p.capabilities?.color), duplex: !!(p.capabilities?.duplex) }
         }));
         savePrinters();
         status.textContent = `✅ Found ${detectedPrinters.length} printer(s).`;
@@ -607,57 +560,38 @@ async function autoDetectPrinters() {
       }
     }
     status.textContent = '⚠️ Browser API not available. Add printers manually below.';
-  } catch (e) {
-    status.textContent = '⚠️ Detection failed: ' + e.message;
-  }
+  } catch (e) { status.textContent = '⚠️ Detection failed: ' + e.message; }
 }
-
-function savePrinters() {
-  localStorage.setItem(PRINTERS_KEY, JSON.stringify(detectedPrinters));
-}
-
+function savePrinters() { localStorage.setItem(PRINTERS_KEY, JSON.stringify(detectedPrinters)); }
 function addManualPrinter() {
   const name = document.getElementById('setupName').value.trim();
   if (!name) return toast('Enter a printer name');
-
   const isDefault = document.getElementById('setupDefault').checked;
   const color = document.getElementById('setupColor').checked;
   const duplex = document.getElementById('setupDuplex').checked;
-
   if (isDefault) detectedPrinters.forEach(p => p.isDefault = false);
-
-  detectedPrinters.push({
-    id: name, name, isDefault, isOnline: true,
-    capabilities: { color, duplex }, source: 'manual',
-  });
-
+  detectedPrinters.push({ id:name, name, isDefault, isOnline:true, capabilities:{color,duplex}, source:'manual' });
   savePrinters();
   renderPrinterList(); renderSetupList(); updateManualDropdown(); updateRoutingHint();
-
   document.getElementById('setupName').value = '';
   document.getElementById('setupColor').checked = false;
   document.getElementById('setupDuplex').checked = false;
   document.getElementById('setupDefault').checked = false;
-
   toast('✅ Printer added');
 }
-
 function removePrinter(id) {
   if (!confirm('Remove this printer?')) return;
   detectedPrinters = detectedPrinters.filter(p => p.id !== id);
   savePrinters();
   renderPrinterList(); renderSetupList(); updateManualDropdown(); updateRoutingHint();
 }
-
 function setDefaultPrinter(id) {
   detectedPrinters.forEach(p => p.isDefault = (p.id === id));
   savePrinters();
   renderPrinterList(); renderSetupList(); updateManualDropdown(); updateRoutingHint();
 }
-
 function renderSetupList() {
-  const wrap = document.getElementById('setupList');
-  if (!wrap) return;
+  const wrap = document.getElementById('setupList'); if (!wrap) return;
   if (detectedPrinters.length === 0) {
     wrap.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">No printers configured</p>';
     return;
@@ -673,7 +607,7 @@ function renderSetupList() {
           ${p.isDefault ? '★ Default · ' : ''}
           ${p.capabilities?.color ? 'Colour · ' : ''}
           ${p.capabilities?.duplex ? 'Duplex · ' : ''}
-          ${p.source || 'manual'}
+          ${escapeHTML(p.source || 'manual')}
         </p>
       </div>
       ${!p.isDefault ? `<button onclick="setDefaultPrinter('${escapeAttr(p.id)}')" class="text-xs text-purple-600 hover:text-pink-500" title="Set as default">
@@ -682,103 +616,67 @@ function renderSetupList() {
       <button onclick="removePrinter('${escapeAttr(p.id)}')" class="text-xs text-red-500 hover:text-red-700">
         <i data-lucide="trash-2" class="w-4 h-4"></i>
       </button>
-    </div>
-  `).join('');
+    </div>`).join('');
   lucide.createIcons();
 }
-
 function updateManualDropdown() {
-  const sel = document.getElementById('manualPrinter');
-  if (!sel) return;
-  sel.innerHTML = detectedPrinters.map(p =>
-    `<option value="${escapeHTML(p.id)}">${escapeHTML(p.name)}${p.isDefault ? ' ★' : ''}</option>`
-  ).join('');
+  const sel = document.getElementById('manualPrinter'); if (!sel) return;
+  sel.innerHTML = detectedPrinters.map(p => `<option value="${escapeAttr(p.id)}">${escapeHTML(p.name)}${p.isDefault ? ' ★' : ''}</option>`).join('');
 }
+function openSetup() { document.getElementById('setupModal').classList.remove('hidden'); renderSetupList(); lucide.createIcons(); }
+function closeSetup() { document.getElementById('setupModal').classList.add('hidden'); }
 
-function openSetup() {
-  document.getElementById('setupModal').classList.remove('hidden');
-  renderSetupList();
-  lucide.createIcons();
-}
-function closeSetup() {
-  document.getElementById('setupModal').classList.add('hidden');
-}
-
-/* ── QR ── */
+// ── QR ──
 function openQR() {
   document.getElementById('qrModal').classList.remove('hidden');
-
   const url = new URL('../customer/', window.location.href).href;
   document.getElementById('qrUrl').textContent = url;
-
   const target = document.getElementById('qrTarget');
   target.innerHTML = '';
-  new QRCode(target, {
-    text: url,
-    width: 260,
-    height: 260,
-    colorDark: '#1f1b2e',
-    colorLight: '#ffffff',
-    correctLevel: QRCode.CorrectLevel.H,
-  });
+  new QRCode(target, { text:url, width:260, height:260, colorDark:'#1f1b2e', colorLight:'#ffffff', correctLevel:QRCode.CorrectLevel.H });
   lucide.createIcons();
 }
-
-function closeQR() {
-  document.getElementById('qrModal').classList.add('hidden');
-}
-
+function closeQR() { document.getElementById('qrModal').classList.add('hidden'); }
 function printQR() {
   const url = new URL('../customer/', window.location.href).href;
   const qrHtml = document.getElementById('qrTarget').innerHTML;
   const win = window.open('', '_blank');
   win.document.write(`
-    <html>
-      <head>
-        <title>Scan to Print</title>
-        <style>
-          body { font-family: Inter, sans-serif; text-align: center; padding: 60px; }
-          h1 { font-size: 42px; margin-bottom: 10px; }
-          p { color: #666; margin-bottom: 40px; font-size: 16px; }
-          .qr { display: inline-block; padding: 24px; border: 2px solid #eee; border-radius: 20px; }
-          img { display: block; }
-        </style>
-      </head>
-      <body>
-        <h1>📱 Scan to Print</h1>
-        <p>Point your phone camera at the code</p>
-        <div class="qr">${qrHtml}</div>
-        <p style="margin-top: 40px; font-size: 14px;">${url}</p>
-        <script>window.onload = () => window.print();<\/script>
-      </body>
-    </html>`);
+    <html><head><title>Scan to Print</title>
+    <style>
+      body { font-family: Inter, sans-serif; text-align:center; padding:60px; }
+      h1 { font-size:42px; margin-bottom:10px; }
+      p { color:#666; margin-bottom:40px; font-size:16px; }
+      .qr { display:inline-block; padding:24px; border:2px solid #eee; border-radius:20px; }
+      img { display:block; }
+    </style></head>
+    <body>
+      <h1>📱 Scan to Print</h1>
+      <p>Point your phone camera at the code</p>
+      <div class="qr">${qrHtml}</div>
+      <p style="margin-top:40px; font-size:14px;">${url}</p>
+      <script>window.onload = () => window.print();<\/script>
+    </body></html>`);
   win.document.close();
 }
 
-/* ── ROUTING ── */
+// ── Routing ──
 function pickBestPrinter(order) {
   const online = detectedPrinters.filter(p => p.isOnline !== false);
   if (online.length === 0) return null;
-
-  let candidates = order.color
-    ? online.filter(p => p.capabilities?.color)
-    : online;
-
+  let candidates = order.color ? online.filter(p => p.capabilities?.color) : online;
   if (candidates.length === 0) candidates = online;
-
   if (order.duplex) {
     const d = candidates.filter(p => p.capabilities?.duplex);
     if (d.length) candidates = d;
   }
   return candidates.find(p => p.isDefault) || candidates[0];
 }
-
 function updateRoutingHint() {
   if (!activeJob) return;
   const el = document.getElementById('routingDetail');
   const wrap = document.getElementById('routingStatus');
   if (!autoRouting) return;
-
   const best = pickBestPrinter({ ...activeJob, ...editedValues });
   if (!best) {
     wrap.className = 'p-4 rounded-xl bg-red-50 border border-red-200 flex items-center gap-3 mb-4';
@@ -788,14 +686,11 @@ function updateRoutingHint() {
   } else {
     wrap.className = 'p-4 rounded-xl bg-green-50 border border-green-200 flex items-center gap-3 mb-4';
     wrap.querySelector('i').setAttribute('data-lucide', 'zap');
-    el.textContent = `Will send to ${best.name}` +
-      (editedValues.color ? ' (colour)' : '') +
-      (editedValues.duplex && best.capabilities?.duplex ? ' · duplex' : '');
+    el.textContent = `Will send to ${best.name}` + (editedValues.color ? ' (colour)' : '') + (editedValues.duplex && best.capabilities?.duplex ? ' · duplex' : '');
     el.className = 'text-xs text-green-700';
   }
   lucide.createIcons();
 }
-
 function toggleManualOverride() {
   autoRouting = !autoRouting;
   document.getElementById('manualOverride').classList.toggle('hidden', autoRouting);
@@ -803,43 +698,34 @@ function toggleManualOverride() {
   updateRoutingHint();
 }
 
-/* ── ORDERS ── */
+// ── Orders ──
 function startNextOrder() {
-  const next = Object.values(readDB())
-    .filter(o => o.printStatus === 'waiting')
-    .sort((a, b) => a.createdAt - b.createdAt)[0];
+  const next = Object.values(readDB()).filter(o => o.printStatus === 'waiting').sort((a,b) => a.createdAt - b.createdAt)[0];
   if (!next) return toast('No orders waiting');
   loadOrder(next);
 }
-
 function loadOrder(order) {
   activeJob = order;
   editedValues = {
     copies: order.copies || 1,
-    color:  order.color || false,
+    color: order.color || false,
     duplex: order.duplex || false,
-    price:  order.priceFinal ?? order.price ?? '',
-    notes:  order.notes || '',
+    price: order.priceFinal ?? order.price ?? '',
+    notes: order.notes || ''
   };
-
   document.getElementById('noActiveOrder').classList.add('hidden');
   document.getElementById('activeOrder').classList.remove('hidden');
   document.getElementById('activeOrder').classList.add('fade-up');
-
   document.getElementById('jpId').textContent = '#' + order.id;
   document.getElementById('jpCode').textContent = order.displayCode || '----';
   document.getElementById('jpStatus').textContent = order.printStatus;
   document.getElementById('jpFileCount').textContent = (order.files || []).length;
-
   renderActiveFiles();
   renderEditToggles();
-
   document.getElementById('editCopies').value = editedValues.copies;
-  document.getElementById('editPrice').value  = editedValues.price;
-  document.getElementById('editNotes').value  = editedValues.notes;
-
+  document.getElementById('editPrice').value = editedValues.price;
+  document.getElementById('editNotes').value = editedValues.notes;
   updateRoutingHint();
-
   document.getElementById('printProgress').classList.add('hidden');
   const btn = document.getElementById('printBtn');
   btn.disabled = false;
@@ -849,105 +735,241 @@ function loadOrder(order) {
 }
 
 function renderActiveFiles() {
-  const wrap=document.getElementById('jpFilesList'), files=activeJob?.files||[];
-  wrap.innerHTML=files.map((f,i)=>{
-    const isImg=(f.type||'').includes('image'), status=f.status||'waiting';
-    const statusStyle={waiting:'bg-amber-100 text-amber-700',printing:'bg-blue-100 text-blue-700',printed:'bg-green-100 text-green-700',skipped:'bg-slate-100 text-slate-500'}[status]||'bg-amber-100 text-amber-700';
-    const view=f.url?`<button onclick="viewOrderFile(${JSON.stringify(f).replace(/"/g,'&quot;')})" class="p-2 rounded-lg hover:bg-pink-100 text-pink-600 flex-shrink-0" title="View ${escapeHTML(f.name)}"><i data-lucide="eye" class="w-4 h-4"></i></button><a href="${escapeHTML(f.url)}" target="_blank" rel="noopener" class="p-2 rounded-lg hover:bg-purple-100 text-purple-600 flex-shrink-0" title="Open file"><i data-lucide="external-link" class="w-4 h-4"></i></a>`:'';
-    return `<div class="flex items-center gap-3 p-3 rounded-xl bg-purple-50 border border-purple-100"><div class="w-10 h-10 rounded-xl ${isImg?'bg-pink-100':'bg-purple-100'} flex items-center justify-center flex-shrink-0"><i data-lucide="${isImg?'image':'file-text'}" class="w-5 h-5 ${isImg?'text-pink-500':'text-purple-600'}"></i></div><div class="flex-1 min-w-0"><p class="font-medium text-sm truncate text-slate-800">${escapeHTML(f.name)}</p><p class="text-xs text-slate-400">${f.size?(f.size/1048576).toFixed(2)+' MB':'—'} · ${escapeHTML(f.type||'file')}</p></div><span class="text-[10px] px-2 py-0.5 rounded-full ${statusStyle} flex-shrink-0">${status}</span><div class="flex items-center gap-1">${view}</div></div>`;
-  }).join(''); lucide.createIcons();
+  const wrap = document.getElementById('jpFilesList');
+  activeFiles = activeJob?.files || [];
+  if (!activeFiles.length) {
+    wrap.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">No files</p>';
+    return;
+  }
+  wrap.innerHTML = activeFiles.map((f, i) => {
+    const isImg = (f.type||'').includes('image');
+    const status = f.status || 'waiting';
+    const statusStyle = {
+      waiting:'bg-amber-100 text-amber-700', printing:'bg-blue-100 text-blue-700',
+      printed:'bg-green-100 text-green-700', skipped:'bg-slate-100 text-slate-500'
+    }[status] || 'bg-amber-100 text-amber-700';
+    const hasUrl = !!f.url;
+    const view = hasUrl
+      ? `<button onclick="viewOrderFile(${i})" class="p-2 rounded-lg hover:bg-pink-100 text-pink-600 flex-shrink-0" title="View ${escapeHTML(f.name)}">
+           <i data-lucide="eye" class="w-4 h-4"></i>
+         </button>
+         <a href="${escapeHTML(f.url)}" target="_blank" rel="noopener" class="p-2 rounded-lg hover:bg-purple-100 text-purple-600 flex-shrink-0" title="Open file">
+           <i data-lucide="external-link" class="w-4 h-4"></i>
+         </a>`
+      : `<span class="text-[10px] text-slate-400 px-2 py-1 rounded bg-slate-100" title="No preview URL — Apps Script must return a Drive URL">no preview</span>`;
+    return `<div class="flex items-center gap-3 p-3 rounded-xl bg-purple-50 border border-purple-100">
+      <div class="w-10 h-10 rounded-xl ${isImg ? 'bg-pink-100' : 'bg-purple-100'} flex items-center justify-center flex-shrink-0">
+        <i data-lucide="${isImg ? 'image' : 'file-text'}" class="w-5 h-5 ${isImg ? 'text-pink-500' : 'text-purple-600'}"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="font-medium text-sm truncate text-slate-800">${escapeHTML(f.name)}</p>
+        <p class="text-xs text-slate-400">${f.size ? (f.size/1048576).toFixed(2)+' MB' : '—'} · ${escapeHTML(f.type||'file')}</p>
+      </div>
+      <span class="text-[10px] px-2 py-0.5 rounded-full ${statusStyle} flex-shrink-0">${escapeHTML(status)}</span>
+      <div class="flex items-center gap-1">${view}</div>
+    </div>`;
+  }).join('');
+  lucide.createIcons();
 }
-function viewOrderFile(file){
-  if(!file?.url)return toast('File link unavailable');
-  const name=String(file.name||'').toLowerCase(), type=file.type||'';
-  document.getElementById('viewerName').textContent=file.name||'File'; document.getElementById('viewerMeta').textContent=type||'File preview';
-  const c=document.getElementById('viewerContent'); c.innerHTML=''; viewerZoomLevel=1; applyZoom();
-  if(type==='application/pdf'||name.endsWith('.pdf')){
-    c.innerHTML=`<iframe src="${escapeHTML(file.url)}" class="w-[min(88vw,900px)] h-[70vh] rounded-xl bg-white border border-slate-200" title="PDF preview"></iframe><div class="mt-3 text-center"><a href="${escapeHTML(file.url)}" target="_blank" rel="noopener" class="text-sm text-purple-600 underline">Open PDF in new tab</a></div>`;
-  } else if(type.startsWith('image/')){
-    c.innerHTML=`<img src="${escapeHTML(file.url)}" alt="" class="max-w-full max-h-[70vh] rounded-xl shadow" />`;
-  } else { c.innerHTML=`<div class="p-10 text-center bg-white rounded-2xl"><i data-lucide="file" class="w-12 h-12 mx-auto text-purple-500"></i><p class="mt-3">Preview is not available for this file type.</p><a class="inline-block mt-4 text-purple-600 underline" href="${escapeHTML(file.url)}" target="_blank" rel="noopener">Open file</a></div>`; }
-  document.getElementById('viewerModal').classList.remove('hidden'); lucide.createIcons();
+
+function viewOrderFile(i) {
+  const file = activeFiles[i];
+  if (!file?.url) return toast('File link unavailable');
+  const name = String(file.name||'').toLowerCase();
+  const type = file.type || '';
+  document.getElementById('viewerName').textContent = file.name || 'File';
+  document.getElementById('viewerMeta').textContent = type || 'File preview';
+  const c = document.getElementById('viewerContent');
+  c.innerHTML = '';
+  viewerZoomLevel = 1; applyZoom();
+  if (type === 'application/pdf' || name.endsWith('.pdf')) {
+    c.innerHTML = `<iframe src="${escapeHTML(file.url)}" class="w-[min(88vw,900px)] h-[70vh] rounded-xl bg-white border border-slate-200" title="PDF preview"></iframe>
+      <div class="mt-3 text-center"><a href="${escapeHTML(file.url)}" target="_blank" rel="noopener" class="text-sm text-purple-600 underline">Open PDF in new tab</a></div>`;
+  } else if (type.startsWith('image/')) {
+    c.innerHTML = `<img src="${escapeHTML(file.url)}" alt="" class="max-w-full max-h-[70vh] rounded-xl shadow" />`;
+  } else {
+    c.innerHTML = `<div class="p-10 text-center bg-white rounded-2xl">
+      <i data-lucide="file" class="w-12 h-12 mx-auto text-purple-500"></i>
+      <p class="mt-3">Preview is not available for this file type.</p>
+      <a class="inline-block mt-4 text-purple-600 underline" href="${escapeHTML(file.url)}" target="_blank" rel="noopener">Open file</a>
+    </div>`;
+  }
+  document.getElementById('viewerModal').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+// ── Bulk file actions ──
+function downloadAllFiles() {
+  if (!activeFiles.length) return toast('No files');
+  let n = 0;
+  activeFiles.forEach((f, i) => {
+    const url = f.downloadUrl || f.url;
+    if (!url) return;
+    setTimeout(() => window.open(url, '_blank', 'noopener'), i * 400);
+    n++;
+  });
+  toast(n ? `Downloading ${n} file(s)…` : 'No downloadable URLs');
+}
+function openAllFiles() {
+  if (!activeFiles.length) return toast('No files');
+  let n = 0;
+  activeFiles.forEach((f, i) => {
+    if (!f.url) return;
+    setTimeout(() => window.open(f.url, '_blank', 'noopener'), i * 400);
+    n++;
+  });
+  toast(n ? `Opening ${n} file(s)…` : 'No preview URLs available');
+}
+function printAllFiles() {
+  if (!activeFiles.length) return toast('No files');
+  let n = 0;
+  activeFiles.forEach((f, i) => {
+    const url = f.downloadUrl || f.url;
+    if (!url) return;
+    setTimeout(() => {
+      const w = window.open(url, '_blank', 'noopener');
+      if (w) setTimeout(() => { try { w.print(); } catch {} }, 800);
+    }, i * 500);
+    n++;
+  });
+  toast(n ? `Opening ${n} file(s) for printing — press Ctrl+P if not auto` : 'No files');
 }
 
 function onEdit() {
   editedValues.copies = Math.max(1, Math.min(200, parseInt(document.getElementById('editCopies').value) || 1));
-  editedValues.price  = document.getElementById('editPrice').value === ''
-    ? '' : Math.max(0, parseFloat(document.getElementById('editPrice').value) || 0);
-  editedValues.notes  = document.getElementById('editNotes').value;
+  editedValues.price = document.getElementById('editPrice').value === '' ? '' : Math.max(0, parseFloat(document.getElementById('editPrice').value) || 0);
+  editedValues.notes = document.getElementById('editNotes').value;
   updateRoutingHint();
 }
-
 function toggleEdit(key) {
   editedValues[key] = !editedValues[key];
   renderEditToggles();
   updateRoutingHint();
 }
-
 function renderEditToggles() {
-  ['color', 'duplex'].forEach(key => {
-    const btn  = document.getElementById(key === 'color' ? 'editColor' : 'editDuplex');
+  ['color','duplex'].forEach(key => {
+    const btn = document.getElementById(key === 'color' ? 'editColor' : 'editDuplex');
     const knob = btn.querySelector('.knob');
     if (editedValues[key]) {
-      btn.classList.remove('bg-slate-300');
-      btn.classList.add('grad-btn');
-      knob.style.left = '1.5rem';
+      btn.classList.remove('bg-slate-300'); btn.classList.add('grad-btn'); knob.style.left = '1.5rem';
     } else {
-      btn.classList.add('bg-slate-300');
-      btn.classList.remove('grad-btn');
-      knob.style.left = '0.25rem';
+      btn.classList.add('bg-slate-300'); btn.classList.remove('grad-btn'); knob.style.left = '0.25rem';
     }
   });
 }
 
 async function sendToPrinter() {
-  if(!activeJob)return;
-  let printer=autoRouting?pickBestPrinter({...activeJob,...editedValues}):detectedPrinters.find(p=>p.id===document.getElementById('manualPrinter').value);
-  if(!printer)return toast('❌ No suitable printer — check Setup');
-  if(editedValues.color&&!printer.capabilities?.color)return toast(`❌ ${printer.name} does not support colour`);
-  const btn=document.getElementById('printBtn');btn.disabled=true;btn.innerHTML='<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Starting…';lucide.createIcons();
-  const changes={status:'printing',copies:editedValues.copies,color:editedValues.color,duplex:editedValues.duplex,price:editedValues.price===''?0:editedValues.price,priceFinal:editedValues.price===''?null:editedValues.price,notes:editedValues.notes,printer:printer.name,printerId:printer.id};
-  try{
-    const r=await updateServerOrder(activeJob.id,changes); if(!r.success)throw new Error(r.error||'Unable to start');
-    activeJob=normalizeServerOrder(r.order); const db=readDB();db[activeJob.id]=activeJob;writeDB(db);document.getElementById('jpStatus').textContent='printing';renderActiveFiles();renderQueue();
-    const wrap=document.getElementById('printProgress'),bar=document.getElementById('progressBar'),pct=document.getElementById('progressPct'),lbl=document.getElementById('progressLabel');wrap.classList.remove('hidden');
-    // Browser-safe printing: open each file in a new tab. Silent printing requires a local print agent.
-    (activeJob.files||[]).forEach((f,i)=>{if(f.url)setTimeout(()=>window.open(f.url,'_blank','noopener'),i*300)});
-    bar.style.width='100%';pct.textContent='100%';lbl.textContent='Files opened. Print them from the browser print dialog, then click Mark Printed.';
-    btn.disabled=false;btn.innerHTML='<i data-lucide="check-circle-2" class="w-5 h-5"></i> Mark Printed';btn.onclick=markPrinted;lucide.createIcons();
-  }catch(e){toast('❌ '+e.message);btn.disabled=false;btn.innerHTML='<i data-lucide="printer" class="w-5 h-5"></i> Send to Printer';lucide.createIcons()}
+  if (!activeJob) return;
+  const printer = autoRouting
+    ? pickBestPrinter({...activeJob, ...editedValues})
+    : detectedPrinters.find(p => p.id === document.getElementById('manualPrinter').value);
+  if (!printer) return toast('❌ No suitable printer — check Setup');
+  if (editedValues.color && !printer.capabilities?.color) return toast(`❌ ${printer.name} does not support colour`);
+  const btn = document.getElementById('printBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Starting…';
+  lucide.createIcons();
+  const changes = {
+    status:'printing', copies:editedValues.copies,
+    color:editedValues.color, duplex:editedValues.duplex,
+    price: editedValues.price === '' ? 0 : editedValues.price,
+    priceFinal: editedValues.price === '' ? null : editedValues.price,
+    notes: editedValues.notes,
+    printer: printer.name, printerId: printer.id
+  };
+  try {
+    const r = await updateServerOrder(activeJob.id, changes);
+    if (!r.success) throw new Error(r.error || 'Unable to start');
+    activeJob = normalizeServerOrder(r.order);
+    const db = readDB(); db[activeJob.id] = activeJob; writeDB(db);
+    document.getElementById('jpStatus').textContent = 'printing';
+    renderActiveFiles(); renderQueue();
+    const wrap = document.getElementById('printProgress');
+    const bar = document.getElementById('progressBar');
+    const pct = document.getElementById('progressPct');
+    const lbl = document.getElementById('progressLabel');
+    wrap.classList.remove('hidden');
+    printAllFiles();
+    bar.style.width = '100%'; pct.textContent = '100%';
+    lbl.textContent = 'Files opened. Print them, then click Mark Printed.';
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="check-circle-2" class="w-5 h-5"></i> Mark Printed';
+    btn.onclick = markPrinted;
+    lucide.createIcons();
+  } catch (e) {
+    toast('❌ ' + e.message);
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="printer" class="w-5 h-5"></i> Send to Printer';
+    lucide.createIcons();
+  }
 }
-async function markPrinted(){
-  if(!activeJob)return; const btn=document.getElementById('printBtn');btn.disabled=true;
-  try{const r=await updateServerOrder(activeJob.id,{status:'printed'});activeJob=normalizeServerOrder(r.order);const db=readDB();db[activeJob.id]=activeJob;writeDB(db);document.getElementById('jpStatus').textContent='printed';renderActiveFiles();announceReady(activeJob.displayCode);btn.disabled=false;btn.innerHTML='<i data-lucide="check-circle-2" class="w-5 h-5"></i> Mark Collected';btn.onclick=markCollected;lucide.createIcons();toast('✅ Marked ready for collection');renderQueue()}catch(e){btn.disabled=false;toast('❌ '+e.message)}
+async function markPrinted() {
+  if (!activeJob) return;
+  const btn = document.getElementById('printBtn');
+  btn.disabled = true;
+  try {
+    const r = await updateServerOrder(activeJob.id, {status:'printed'});
+    activeJob = normalizeServerOrder(r.order);
+    const db = readDB(); db[activeJob.id] = activeJob; writeDB(db);
+    document.getElementById('jpStatus').textContent = 'printed';
+    renderActiveFiles();
+    announceReady(activeJob.displayCode);
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="check-circle-2" class="w-5 h-5"></i> Mark Collected';
+    btn.onclick = markCollected;
+    lucide.createIcons();
+    toast('✅ Marked ready for collection');
+    renderQueue();
+  } catch (e) {
+    btn.disabled = false;
+    toast('❌ ' + e.message);
+  }
 }
-
-async function markCollected(){if(!activeJob)return;try{await updateServerOrder(activeJob.id,{status:'collected',paymentStatus:'paid'});toast('📦 Collected — ready for next order');await syncOrdersFromDrive();clearActive()}catch(e){toast('❌ '+e.message)}}
-
-async function cancelOrder(){if(!activeJob)return;const reason=prompt('Reason for cancellation?')||'Cancelled by shop';try{await updateServerOrder(activeJob.id,{status:'failed',reason});toast('❌ Order cancelled');await syncOrdersFromDrive();clearActive()}catch(e){toast('❌ '+e.message)}}
-
+async function markCollected() {
+  if (!activeJob) return;
+  try {
+    await updateServerOrder(activeJob.id, {status:'collected', paymentStatus:'paid'});
+    toast('📦 Collected — ready for next order');
+    await syncOrdersFromDrive();
+    clearActive();
+  } catch (e) { toast('❌ ' + e.message); }
+}
+async function cancelOrder() {
+  if (!activeJob) return;
+  const reason = prompt('Reason for cancellation?') || 'Cancelled by shop';
+  try {
+    await updateServerOrder(activeJob.id, {status:'failed', reason});
+    toast('❌ Order cancelled');
+    await syncOrdersFromDrive();
+    clearActive();
+  } catch (e) { toast('❌ ' + e.message); }
+}
 function clearActive() {
-  activeJob = null;
+  activeJob = null; activeFiles = [];
   document.getElementById('activeOrder').classList.add('hidden');
   document.getElementById('noActiveOrder').classList.remove('hidden');
   document.getElementById('noActiveOrder').classList.add('fade-up');
   renderQueue();
 }
-
-async function reprintOrder(orderId){const o=readDB()[orderId];if(!o)return;if(activeJob)return toast('Finish current order first');try{const r=await updateServerOrder(orderId,{status:'waiting',reprintCount:(o.reprintCount||0)+1});toast(`🔁 Reprint queued (#${(o.reprintCount||0)+1})`);await syncOrdersFromDrive()}catch(e){toast('❌ '+e.message)}}
+async function reprintOrder(orderId) {
+  const o = readDB()[orderId];
+  if (!o) return;
+  if (activeJob) return toast('Finish current order first');
+  try {
+    await updateServerOrder(orderId, {status:'waiting', reprintCount:(o.reprintCount||0)+1});
+    toast(`🔁 Reprint queued (#${(o.reprintCount||0)+1})`);
+    await syncOrdersFromDrive();
+  } catch (e) { toast('❌ ' + e.message); }
+}
 
 function renderQueue() {
-  const orders = Object.values(readDB()).sort((a, b) => b.createdAt - a.createdAt);
+  const orders = Object.values(readDB()).sort((a,b) => b.createdAt - a.createdAt);
   const list = document.getElementById('queueList');
   if (!list) return;
-
   const waiting = orders.filter(o => o.printStatus === 'waiting').length;
-
   document.getElementById('queueCount').textContent = waiting;
-  document.getElementById('waitingHint').textContent =
-    waiting + ' order' + (waiting === 1 ? '' : 's') + ' waiting';
+  document.getElementById('waitingHint').textContent = waiting + ' order' + (waiting === 1 ? '' : 's') + ' waiting';
   document.getElementById('startNextBtn').disabled = waiting === 0;
-
   if (waiting > lastWaitingCount && !activeJob && orders.length > 1) {
     playBeep();
     const btn = document.getElementById('startNextBtn');
@@ -955,55 +977,61 @@ function renderQueue() {
     setTimeout(() => btn.classList.remove('shadow-glow'), 1200);
   }
   lastWaitingCount = waiting;
-
   if (!orders.length) {
     list.innerHTML = '<p class="text-xs text-slate-400 text-center py-8">No orders yet</p>';
     return;
   }
-
   const styles = {
-    waiting:   'bg-amber-100 text-amber-700 border-amber-300',
-    printing:  'bg-blue-100 text-blue-700 border-blue-300',
-    printed:   'bg-green-100 text-green-700 border-green-300',
-    collected: 'bg-emerald-100 text-emerald-700 border-emerald-300',
-    failed:    'bg-red-100 text-red-700 border-red-300',
+    waiting:'bg-amber-100 text-amber-700 border-amber-300',
+    printing:'bg-blue-100 text-blue-700 border-blue-300',
+    printed:'bg-green-100 text-green-700 border-green-300',
+    collected:'bg-emerald-100 text-emerald-700 border-emerald-300',
+    failed:'bg-red-100 text-red-700 border-red-300'
   };
-
   list.innerHTML = orders.map(o => {
     const isActive = activeJob && activeJob.id === o.id;
     const fileCount = (o.files || []).length;
     const isDone = o.printStatus === 'printed' || o.printStatus === 'collected';
-    return `
-      <div class="p-3 rounded-xl border transition
-        ${isActive
-          ? 'bg-gradient-to-r from-purple-100 to-pink-100 border-pink-400 shadow-soft'
-          : 'bg-purple-50/60 border-purple-100 hover:border-pink-400'}">
-        <div class="flex items-center justify-between mb-1 cursor-pointer" onclick="quickLoad('${escapeAttr(o.id)}')">
-          <span class="font-mono text-base font-bold grad-text tracking-widest">${o.displayCode}</span>
-          <span class="text-[10px] px-2 py-0.5 rounded-full border ${styles[o.printStatus] || ''}">
-            ${o.printStatus}
-          </span>
-        </div>
-        <p class="text-xs text-slate-700 cursor-pointer" onclick="quickLoad('${escapeAttr(o.id)}')">
-          ${fileCount} file${fileCount > 1 ? 's' : ''} · ${o.copies || 1}c · ${o.color ? '🎨' : '⚫'}${o.duplex ? ' · ⇄' : ''}
+    return `<div class="p-3 rounded-xl border transition ${isActive ? 'bg-gradient-to-r from-purple-100 to-pink-100 border-pink-400 shadow-soft' : 'bg-purple-50/60 border-purple-100 hover:border-pink-400'}">
+      <div class="flex items-center justify-between mb-1 cursor-pointer" onclick="quickLoad('${escapeAttr(o.id)}')">
+        <span class="font-mono text-base font-bold grad-text tracking-widest">${escapeHTML(o.displayCode)}</span>
+        <span class="text-[10px] px-2 py-0.5 rounded-full border ${styles[o.printStatus] || ''}">${escapeHTML(o.printStatus)}</span>
+      </div>
+      <p class="text-xs text-slate-700 cursor-pointer" onclick="quickLoad('${escapeAttr(o.id)}')">
+        ${fileCount} file${fileCount > 1 ? 's' : ''} · ${o.copies || 1}c · ${o.color ? '🎨' : '⚫'}${o.duplex ? ' · ⇄' : ''}
+      </p>
+      <div class="flex items-center justify-between mt-1">
+        <p class="text-[10px] text-slate-400">
+          ${new Date(o.createdAt).toLocaleTimeString()}
+          ${o.printer ? ' · ' + escapeHTML(o.printer) : ''}
+          ${o.reprintCount ? ' · 🔁' + o.reprintCount : ''}
+          ${isActive ? ' · <span class="text-pink-500 font-medium">ACTIVE</span>' : ''}
         </p>
-        <div class="flex items-center justify-between mt-1">
-          <p class="text-[10px] text-slate-400">
-            ${new Date(o.createdAt).toLocaleTimeString()}
-            ${o.printer ? ` · ${o.printer}` : ''}
-            ${o.reprintCount ? ` · 🔁${o.reprintCount}` : ''}
-            ${isActive ? ' · <span class="text-pink-500 font-medium">ACTIVE</span>' : ''}
-          </p>
-          ${isDone ? `<button onclick="reprintOrder('${escapeAttr(o.id)}')" class="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 hover:bg-purple-200 text-purple-700 font-medium flex items-center gap-1">
-            <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Reprint
-          </button>` : ''}
-        </div>
-      </div>`;
+        ${isDone ? `<button onclick="reprintOrder('${escapeAttr(o.id)}')" class="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 hover:bg-purple-200 text-purple-700 font-medium flex items-center gap-1">
+          <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Reprint
+        </button>` : ''}
+      </div>
+    </div>`;
   }).join('');
   lucide.createIcons();
 }
 
-async function quickLoad(id){if(activeJob)return toast('Finish or cancel the current order first');try{const u=new URL(APPS_SCRIPT_URL);u.searchParams.set('action','ORDER');u.searchParams.set('orderId',id);u.searchParams.set('token',SHOP_TOKEN);const r=await fetch(u.toString(),{cache:'no-store'}).then(x=>x.json());if(r.success&&r.order){const o=normalizeServerOrder(r.order);const db=readDB();db[id]=o;writeDB(db);if(o.printStatus==='waiting')loadOrder(o);else toast('This order is '+o.printStatus+' — use Reprint if needed')}}catch(e){toast('Unable to load order')}}
+async function quickLoad(id) {
+  if (activeJob) return toast('Finish or cancel the current order first');
+  try {
+    const u = new URL(APPS_SCRIPT_URL);
+    u.searchParams.set('action','ORDER');
+    u.searchParams.set('orderId', id);
+    u.searchParams.set('token', SHOP_TOKEN);
+    const r = await fetch(u.toString(), {cache:'no-store'}).then(x => x.json());
+    if (r.success && r.order) {
+      const o = normalizeServerOrder(r.order);
+      const db = readDB(); db[id] = o; writeDB(db);
+      if (o.printStatus === 'waiting') loadOrder(o);
+      else toast('This order is ' + o.printStatus + ' — use Reprint if needed');
+    }
+  } catch (e) { toast('Unable to load order'); }
+}
 
 function clearAll() {
   if (!confirm('Clear all orders on this device? (Drive files remain until auto-delete)')) return;
@@ -1012,16 +1040,12 @@ function clearAll() {
   clearActive();
   renderQueue();
 }
-
 function toast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.style.opacity = 1;
   setTimeout(() => t.style.opacity = 0, 2200);
 }
-
-function closeViewer() {
-  document.getElementById('viewerModal').classList.add('hidden');
-}
+function closeViewer() { document.getElementById('viewerModal').classList.add('hidden'); }
 function zoomViewer(d) {
   viewerZoomLevel = Math.max(0.5, Math.min(2, viewerZoomLevel + d * 0.25));
   applyZoom();
@@ -1039,12 +1063,11 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-/* ── BOOT ── */
+// ── BOOT ──
 (async () => {
   await refreshPrinters();
   updateSoundIcon();
   renderQueue();
-
   console.log('🔄 Initial sync…');
   await syncOrdersFromDrive();
   setInterval(syncOrdersFromDrive, 5000);
