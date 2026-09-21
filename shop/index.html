@@ -419,8 +419,8 @@
 <script>
 lucide.createIcons();
 
-// ── YOUR APPS SCRIPT WEB APP URL ──
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzDibZ5LmHB5kpif-UkKa7N0BlTKLvMjwb0B1F_0yOX9PTX_EfkFHO4Vwc9qwTvOBxo5Q/exec';
+// ── YOUR APPS SCRIPT WEB APP URL (NEW) ──
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyRZibfR-KZIp_tRuqKl8vSdG7efhFJ6p3ZRkA9JrwNL8IV7m4I0TC2O6Tlyq1cKs4jwg/exec';
 
 const DB_KEY = 'xerox_orders';
 const PRINTERS_KEY = 'xerox_printers';
@@ -446,7 +446,7 @@ const writeDB = (db) => {
   } catch (e) { console.error(e); return false; }
 };
 
-/* ── SYNC ORDERS FROM GOOGLE DRIVE (via Apps Script) ── */
+/* ── SYNC ORDERS FROM GOOGLE DRIVE ── */
 async function syncOrdersFromDrive() {
   if (isSyncing) return;
   isSyncing = true;
@@ -476,28 +476,31 @@ async function syncOrdersFromDrive() {
 
     const db = readDB();
     let changed = false;
+    let newCount = 0;
 
-    driveOrders.forEach(do => {
-      if (!do || !do.orderId) return;
+    // ✅ `order` is used instead of reserved word `do`
+    driveOrders.forEach(order => {
+      if (!order || !order.orderId) return;
 
-      if (!db[do.orderId]) {
-        db[do.orderId] = {
-          id: do.orderId,
-          displayCode: do.code,
-          files: (do.files || []).map(f => ({
+      if (!db[order.orderId]) {
+        db[order.orderId] = {
+          id: order.orderId,
+          displayCode: order.code,
+          files: (order.files || []).map(f => ({
             name: f.name,
             url: f.url,
             status: 'waiting',
             type: ''
           })),
-          color: !!do.color,
-          duplex: !!do.duplex,
+          color: !!order.color,
+          duplex: !!order.duplex,
           copies: 1,
           printStatus: 'waiting',
-          createdAt: new Date(do.timestamp).getTime()
+          createdAt: new Date(order.timestamp).getTime()
         };
         changed = true;
-        console.log('✅ New order from Drive:', do.orderId, 'code', do.code);
+        newCount++;
+        console.log('✅ New order from Drive:', order.orderId, 'code', order.code);
       }
     });
 
@@ -505,6 +508,7 @@ async function syncOrdersFromDrive() {
       writeDB(db);
       renderQueue();
       playBeep();
+      if (newCount > 0) toast('🆕 ' + newCount + ' new order(s)');
     }
   } catch (err) {
     console.error('Sync failed:', err);
@@ -1204,6 +1208,18 @@ function toast(msg) {
   setTimeout(() => t.style.opacity = 0, 2200);
 }
 
+function closeViewer() {
+  document.getElementById('viewerModal').classList.add('hidden');
+}
+function zoomViewer(d) {
+  viewerZoomLevel = Math.max(0.5, Math.min(2, viewerZoomLevel + d * 0.25));
+  applyZoom();
+}
+function applyZoom() {
+  document.getElementById('viewerContent').style.transform = `scale(${viewerZoomLevel})`;
+  document.getElementById('viewerZoom').textContent = Math.round(viewerZoomLevel * 100) + '%';
+}
+
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (!document.getElementById('setupModal').classList.contains('hidden')) closeSetup();
@@ -1218,7 +1234,6 @@ document.addEventListener('keydown', (e) => {
   updateSoundIcon();
   renderQueue();
 
-  // Initial sync + every 5 seconds
   console.log('🔄 Initial sync…');
   await syncOrdersFromDrive();
   setInterval(syncOrdersFromDrive, 5000);
