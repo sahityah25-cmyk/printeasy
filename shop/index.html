@@ -433,6 +433,7 @@ let viewerZoomLevel = 1;
 let autoRouting = true;
 let soundEnabled = localStorage.getItem(SOUND_KEY) !== 'false';
 let lastWaitingCount = 0;
+let isSyncing = false;
 
 const readDB = () => {
   try { return JSON.parse(localStorage.getItem(DB_KEY) || '{}'); }
@@ -445,37 +446,70 @@ const writeDB = (db) => {
   } catch (e) { console.error(e); return false; }
 };
 
-/* ── POLL NEW ORDERS FROM DRIVE ── */
+/* ── SYNC ORDERS FROM GOOGLE DRIVE (via Apps Script) ── */
 async function syncOrdersFromDrive() {
+  if (isSyncing) return;
+  isSyncing = true;
+
   try {
-    const res = await fetch(APPS_SCRIPT_URL + '?t=' + Date.now());
-    const driveOrders = await res.json();
+    const res = await fetch(APPS_SCRIPT_URL, { method: 'GET', redirect: 'follow' });
+
+    if (!res.ok) {
+      console.warn('Drive sync HTTP error:', res.status);
+      return;
+    }
+
+    const text = await res.text();
+    let driveOrders;
+
+    try {
+      driveOrders = JSON.parse(text);
+    } catch (parseErr) {
+      console.error('Invalid JSON from Apps Script:', text.slice(0, 300));
+      return;
+    }
+
+    if (!Array.isArray(driveOrders)) {
+      console.error('Unexpected response (not array):', driveOrders);
+      return;
+    }
 
     const db = readDB();
     let changed = false;
 
     driveOrders.forEach(do => {
+      if (!do || !do.orderId) return;
+
       if (!db[do.orderId]) {
         db[do.orderId] = {
           id: do.orderId,
           displayCode: do.code,
-          files: do.files.map(f => ({ name: f.name, url: f.url, status: 'waiting', type: '' })),
-          color: do.color,
-          duplex: do.duplex,
+          files: (do.files || []).map(f => ({
+            name: f.name,
+            url: f.url,
+            status: 'waiting',
+            type: ''
+          })),
+          color: !!do.color,
+          duplex: !!do.duplex,
           copies: 1,
           printStatus: 'waiting',
           createdAt: new Date(do.timestamp).getTime()
         };
         changed = true;
+        console.log('✅ New order from Drive:', do.orderId, 'code', do.code);
       }
     });
 
     if (changed) {
       writeDB(db);
       renderQueue();
+      playBeep();
     }
   } catch (err) {
     console.error('Sync failed:', err);
+  } finally {
+    isSyncing = false;
   }
 }
 
@@ -502,6 +536,7 @@ function toggleSound() {
 }
 function updateSoundIcon() {
   const btn = document.getElementById('soundBtn');
+  if (!btn) return;
   btn.innerHTML = `<i data-lucide="${soundEnabled ? 'volume-2' : 'volume-x'}" class="w-4 h-4"></i>`;
   lucide.createIcons();
 }
@@ -520,6 +555,7 @@ function announceReady(code) {
 /* ── PRINTERS ── */
 async function refreshPrinters() {
   detectedPrinters = [];
+
   try {
     if (navigator.printers && navigator.printers.getPrinters) {
       const list = await navigator.printers.getPrinters();
@@ -529,7 +565,10 @@ async function refreshPrinters() {
           name: p.name || p.id,
           isDefault: !!p.isDefault,
           isOnline: true,
-          capabilities: { color: !!(p.capabilities?.color), duplex: !!(p.capabilities?.duplex) },
+          capabilities: {
+            color: !!(p.capabilities?.color),
+            duplex: !!(p.capabilities?.duplex)
+          },
           source: 'browser',
         }));
       }
@@ -542,6 +581,7 @@ async function refreshPrinters() {
       detectedPrinters = saved.map(p => ({ ...p, source: 'saved', isOnline: true }));
     }
   }
+
   renderPrinterList();
   renderSetupList();
   updateManualDropdown();
@@ -550,6 +590,7 @@ async function refreshPrinters() {
 
 function renderPrinterList() {
   const wrap = document.getElementById('printerList');
+  if (!wrap) return;
   document.getElementById('printerCount').textContent = detectedPrinters.length + ' found';
 
   if (detectedPrinters.length === 0) {
@@ -588,6 +629,7 @@ async function autoDetectPrinters() {
   const status = document.getElementById('detectStatus');
   status.textContent = 'Detecting…';
   detectedPrinters = [];
+
   try {
     if (navigator.printers && navigator.printers.getPrinters) {
       const list = await navigator.printers.getPrinters();
@@ -597,7 +639,10 @@ async function autoDetectPrinters() {
           name: p.name || p.id,
           isDefault: !!p.isDefault,
           isOnline: true,
-          capabilities: { color: !!(p.capabilities?.color), duplex: !!(p.capabilities?.duplex) },
+          capabilities: {
+            color: !!(p.capabilities?.color),
+            duplex: !!(p.capabilities?.duplex)
+          },
         }));
         savePrinters();
         status.textContent = `✅ Found ${detectedPrinters.length} printer(s).`;
@@ -656,6 +701,7 @@ function setDefaultPrinter(id) {
 
 function renderSetupList() {
   const wrap = document.getElementById('setupList');
+  if (!wrap) return;
   if (detectedPrinters.length === 0) {
     wrap.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">No printers configured</p>';
     return;
@@ -705,39 +751,51 @@ function closeSetup() {
 /* ── QR ── */
 function openQR() {
   document.getElementById('qrModal').classList.remove('hidden');
+
   const url = new URL('../customer/', window.location.href).href;
   document.getElementById('qrUrl').textContent = url;
 
   const target = document.getElementById('qrTarget');
   target.innerHTML = '';
   new QRCode(target, {
-    text: url, width: 260, height: 260,
-    colorDark: '#1f1b2e', colorLight: '#ffffff',
+    text: url,
+    width: 260,
+    height: 260,
+    colorDark: '#1f1b2e',
+    colorLight: '#ffffff',
     correctLevel: QRCode.CorrectLevel.H,
   });
   lucide.createIcons();
 }
-function closeQR() { document.getElementById('qrModal').classList.add('hidden'); }
+
+function closeQR() {
+  document.getElementById('qrModal').classList.add('hidden');
+}
 
 function printQR() {
   const url = new URL('../customer/', window.location.href).href;
   const qrHtml = document.getElementById('qrTarget').innerHTML;
   const win = window.open('', '_blank');
   win.document.write(`
-    <html><head><title>Scan to Print</title>
-    <style>
-      body { font-family: Inter, sans-serif; text-align: center; padding: 60px; }
-      h1 { font-size: 42px; margin-bottom: 10px; }
-      p { color: #666; margin-bottom: 40px; font-size: 16px; }
-      .qr { display: inline-block; padding: 24px; border: 2px solid #eee; border-radius: 20px; }
-      img { display: block; }
-    </style></head><body>
-    <h1>📱 Scan to Print</h1>
-    <p>Point your phone camera at the code</p>
-    <div class="qr">${qrHtml}</div>
-    <p style="margin-top: 40px; font-size: 14px;">${url}</p>
-    <script>window.onload = () => window.print();<\/script>
-    </body></html>`);
+    <html>
+      <head>
+        <title>Scan to Print</title>
+        <style>
+          body { font-family: Inter, sans-serif; text-align: center; padding: 60px; }
+          h1 { font-size: 42px; margin-bottom: 10px; }
+          p { color: #666; margin-bottom: 40px; font-size: 16px; }
+          .qr { display: inline-block; padding: 24px; border: 2px solid #eee; border-radius: 20px; }
+          img { display: block; }
+        </style>
+      </head>
+      <body>
+        <h1>📱 Scan to Print</h1>
+        <p>Point your phone camera at the code</p>
+        <div class="qr">${qrHtml}</div>
+        <p style="margin-top: 40px; font-size: 14px;">${url}</p>
+        <script>window.onload = () => window.print();<\/script>
+      </body>
+    </html>`);
   win.document.close();
 }
 
@@ -745,8 +803,13 @@ function printQR() {
 function pickBestPrinter(order) {
   const online = detectedPrinters.filter(p => p.isOnline !== false);
   if (online.length === 0) return null;
-  let candidates = order.color ? online.filter(p => p.capabilities?.color) : online;
+
+  let candidates = order.color
+    ? online.filter(p => p.capabilities?.color)
+    : online;
+
   if (candidates.length === 0) candidates = online;
+
   if (order.duplex) {
     const d = candidates.filter(p => p.capabilities?.duplex);
     if (d.length) candidates = d;
@@ -917,7 +980,8 @@ function sendToPrinter() {
   const files = (db[activeJob.id].files || []).map(f => ({ ...f, status: 'printing' }));
 
   db[activeJob.id] = {
-    ...db[activeJob.id], files,
+    ...db[activeJob.id],
+    files,
     copies: editedValues.copies,
     color: editedValues.color,
     duplex: editedValues.duplex,
@@ -927,6 +991,7 @@ function sendToPrinter() {
     printer: printer.name,
     printerId: printer.id,
     printStatus: 'printing',
+    paymentStatus: 'pending',
     updatedAt: Date.now(),
   };
   writeDB(db);
@@ -1041,6 +1106,7 @@ function reprintOrder(orderId) {
   const o = db[orderId];
   if (!o) return;
   if (activeJob) return toast('Finish current order first');
+
   o.printStatus = 'waiting';
   o.reprintCount = (o.reprintCount || 0) + 1;
   o.updatedAt = Date.now();
@@ -1052,6 +1118,8 @@ function reprintOrder(orderId) {
 function renderQueue() {
   const orders = Object.values(readDB()).sort((a, b) => b.createdAt - a.createdAt);
   const list = document.getElementById('queueList');
+  if (!list) return;
+
   const waiting = orders.filter(o => o.printStatus === 'waiting').length;
 
   document.getElementById('queueCount').textContent = waiting;
@@ -1123,7 +1191,7 @@ function quickLoad(id) {
 }
 
 function clearAll() {
-  if (!confirm('Clear all demo orders?')) return;
+  if (!confirm('Clear all orders on this device? (Drive files remain until auto-delete)')) return;
   localStorage.removeItem(DB_KEY);
   lastWaitingCount = 0;
   clearActive();
@@ -1140,6 +1208,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (!document.getElementById('setupModal').classList.contains('hidden')) closeSetup();
     if (!document.getElementById('qrModal').classList.contains('hidden')) closeQR();
+    if (!document.getElementById('viewerModal').classList.contains('hidden')) closeViewer();
   }
 });
 
@@ -1148,7 +1217,10 @@ document.addEventListener('keydown', (e) => {
   await refreshPrinters();
   updateSoundIcon();
   renderQueue();
-  syncOrdersFromDrive();
+
+  // Initial sync + every 5 seconds
+  console.log('🔄 Initial sync…');
+  await syncOrdersFromDrive();
   setInterval(syncOrdersFromDrive, 5000);
 })();
 </script>
