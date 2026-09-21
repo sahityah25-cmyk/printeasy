@@ -43,11 +43,8 @@
   .toggle .knob { transition: all .2s ease; }
   .file-item { animation: fadeUp .3s ease-out; }
   .live-pill {
-    position: fixed;
-    top: 12px;
-    right: 12px;
-    z-index: 40;
-    font-size: 11px;
+    position: fixed; top: 12px; right: 12px;
+    z-index: 40; font-size: 11px;
   }
 </style>
 </head>
@@ -242,11 +239,12 @@
 <script>
 lucide.createIcons();
 
-// ── YOUR APPS SCRIPT WEB APP URL ──
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzDibZ5LmHB5kpif-UkKa7N0BlTKLvMjwb0B1F_0yOX9PTX_EfkFHO4Vwc9qwTvOBxo5Q/exec';
+// ── YOUR APPS SCRIPT WEB APP URL (NEW) ──
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyRZibfR-KZIp_tRuqKl8vSdG7efhFJ6p3ZRkA9JrwNL8IV7m4I0TC2O6Tlyq1cKs4jwg/exec';
 
 const DB_KEY = 'xerox_orders';
 const HISTORY_KEY = 'xerox_my_history';
+const PENDING_KEY = 'xerox_pending_uploads';
 
 let files = [];
 let opts = { color: false, duplex: false };
@@ -262,6 +260,49 @@ function writeDB(db) {
   catch (err) { console.error('Storage write failed', err); return false; }
 }
 
+/* ── PENDING UPLOADS (retry queue) ── */
+function getPendingUploads() {
+  try { return JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); }
+  catch { return []; }
+}
+function savePendingUpload(payload) {
+  const list = getPendingUploads();
+  list.push(payload);
+  localStorage.setItem(PENDING_KEY, JSON.stringify(list));
+}
+function removePendingUpload(orderId) {
+  const list = getPendingUploads().filter(o => o.orderId !== orderId);
+  localStorage.setItem(PENDING_KEY, JSON.stringify(list));
+}
+
+/* ── SEND TO APPS SCRIPT ── */
+async function uploadOrder(payload) {
+  await fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  });
+  return true;
+}
+
+async function retryPendingUploads() {
+  const pending = getPendingUploads();
+  if (pending.length === 0) return;
+  console.log('🔄 Retrying', pending.length, 'pending upload(s)…');
+
+  for (const payload of pending) {
+    try {
+      await uploadOrder(payload);
+      removePendingUpload(payload.orderId);
+      console.log('✅ Retried and sent:', payload.orderId);
+    } catch (err) {
+      console.warn('Retry failed for', payload.orderId, err);
+    }
+  }
+}
+
+/* ── HISTORY ── */
 function saveMyHistory(order) {
   const hist = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
   hist.unshift({ orderId: order.id, code: order.displayCode, at: Date.now() });
@@ -450,43 +491,45 @@ function submitOrder() {
     duplex: opts.duplex
   };
 
-  fetch(APPS_SCRIPT_URL, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload)
-  })
-  .then(() => {
-    myOrderId = orderId;
-    document.getElementById('dispCode').textContent = code;
+  savePendingUpload(payload);
 
-    const db = readDB();
-    const order = {
-      id: orderId,
-      displayCode: code,
-      files: files.map(f => ({ id: f.id, name: f.name, type: f.type, size: f.size, status: 'waiting' })),
-      color: opts.color,
-      duplex: opts.duplex,
-      copies: 1,
-      printStatus: 'waiting',
-      createdAt: Date.now()
-    };
-    db[orderId] = order;
-    writeDB(db);
-    saveMyHistory(order);
+  uploadOrder(payload)
+    .then(() => {
+      myOrderId = orderId;
+      document.getElementById('dispCode').textContent = code;
 
-    document.getElementById('cancelWrap').classList.remove('hidden');
-    go('success');
-    startWatchingMyOrder(orderId);
-    renderQueuePosition(orderId);
-    renderWaitEstimate(orderId);
-  })
-  .catch(err => {
-    alert('Upload failed. Please check your internet and try again.');
-    btn.disabled = false;
-    btn.innerHTML = '<i data-lucide="send" class="w-5 h-5"></i> Send to Shop';
-    lucide.createIcons();
-  });
+      const db = readDB();
+      const order = {
+        id: orderId,
+        displayCode: code,
+        files: files.map(f => ({ id: f.id, name: f.name, type: f.type, size: f.size, status: 'waiting' })),
+        color: opts.color,
+        duplex: opts.duplex,
+        copies: 1,
+        printStatus: 'waiting',
+        createdAt: Date.now()
+      };
+      db[orderId] = order;
+      writeDB(db);
+      saveMyHistory(order);
+
+      removePendingUpload(orderId);
+
+      document.getElementById('cancelWrap').classList.remove('hidden');
+      go('success');
+      startWatchingMyOrder(orderId);
+      renderQueuePosition(orderId);
+      renderWaitEstimate(orderId);
+    })
+    .catch(err => {
+      console.error('Upload failed, will retry:', err);
+      myOrderId = orderId;
+      document.getElementById('dispCode').textContent = code;
+      document.getElementById('cancelWrap').classList.add('hidden');
+      go('success');
+      toast('⚠️ Slow connection — retrying in background…');
+      startWatchingMyOrder(orderId);
+    });
 }
 
 function copyCode() {
@@ -638,6 +681,10 @@ function startFreshOrder() {
 
 updateLivePill();
 renderRecentOrders();
+
+// Retry any pending uploads on load + every 30s
+retryPendingUploads();
+setInterval(retryPendingUploads, 30000);
 </script>
 </body>
 </html>
