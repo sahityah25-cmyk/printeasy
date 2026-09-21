@@ -62,12 +62,12 @@
   <!-- UPLOAD -->
   <section id="screen-upload" class="hidden fade-up">
     <h1 class="text-3xl font-bold mb-1">Your <span class="grad-text">Files</span></h1>
-    <p class="text-slate-500 mb-6 text-sm">Add any number of PDF, JPG, PNG (max 10 MB each)</p>
+    <p class="text-slate-500 mb-6 text-sm">Add up to 10 PDF, JPG, PNG (max 10 MB each)</p>
     <div id="dropzone" class="glass rounded-3xl p-6 text-center transition-all cursor-pointer hover:shadow-soft">
       <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png" multiple class="hidden" />
       <div class="w-14 h-14 mx-auto rounded-2xl grad-btn flex items-center justify-center mb-3"><i data-lucide="upload" class="w-6 h-6 text-white"></i></div>
       <p class="font-semibold">Tap or drop files here</p>
-      <p class="text-xs text-slate-400 mt-1">Add as many as you want</p>
+      <p class="text-xs text-slate-400 mt-1">Add up to 10 files</p>
     </div>
     <div id="fileList" class="hidden mt-4 space-y-2"></div>
     <div id="fileSummary" class="hidden glass rounded-2xl p-3 mt-3 text-xs text-slate-600 flex items-center justify-between">
@@ -149,23 +149,22 @@
 lucide.createIcons();
 
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyRZibfR-KZIp_tRuqKl8vSdG7efhFJ6p3ZRkA9JrwNL8IV7m4I0TC2O6Tlyq1cKs4jwg/exec';
-const DB_KEY = 'xerox_orders_v2';
-const HISTORY_KEY = 'xerox_my_history_v2';
-const PENDING_KEY = 'xerox_pending_uploads_v2';
-const MAX_RETRY = 5;
+const DB_KEY       = 'xerox_orders_v2';
+const HISTORY_KEY  = 'xerox_my_history_v2';
+const PENDING_KEY  = 'xerox_pending_uploads_v2';
+const MAX_RETRY    = 5;
+const MAX_FILES    = 10;
 
 let files = [];
 let opts = { color:false, duplex:false };
-let myOrderId = null;
+let myOrderId   = null;
 let myOrderCode = null;
 let statusWatcher = null;
 let syncingStatus = false;
 
-// ── Safe escaping ──
 function escapeHTML(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function escapeAttr(s){return escapeHTML(s)}
 
-// ── Storage ──
 function readDB(){ try{return JSON.parse(localStorage.getItem(DB_KEY)||'{}')}catch{return{}} }
 function writeDB(db){ try{localStorage.setItem(DB_KEY,JSON.stringify(db));return true}catch(e){return false} }
 function cacheOrder(o){
@@ -180,7 +179,6 @@ function savePendingUpload(p){const a=getPendingUploads().filter(x=>x.orderId!==
 function removePendingUpload(id){localStorage.setItem(PENDING_KEY,JSON.stringify(getPendingUploads().filter(x=>x.orderId!==id)))}
 function bumpAttempt(id){const a=getPendingUploads();const i=a.findIndex(x=>x.orderId===id);if(i>=0){a[i]._attempts=(a[i]._attempts||0)+1;localStorage.setItem(PENDING_KEY,JSON.stringify(a))}}
 
-// ── API ──
 async function apiGet(params){
   const u=new URL(APPS_SCRIPT_URL); Object.entries(params||{}).forEach(([k,v])=>u.searchParams.set(k,v));
   const r=await fetch(u.toString(),{method:'GET',cache:'no-store'});
@@ -199,22 +197,12 @@ async function uploadOrder(payload){ return apiPost({action:'CREATE_ORDER',...pa
 async function retryPendingUploads(){
   const list=getPendingUploads();
   for(const payload of list){
-    if((payload._attempts||0)>=MAX_RETRY){
-      removePendingUpload(payload.orderId);
-      console.warn('Dropped after max retries:',payload.orderId);
-      continue;
-    }
-    try{
-      await uploadOrder(payload);
-      removePendingUpload(payload.orderId);
-    }catch(e){
-      bumpAttempt(payload.orderId);
-      console.warn('Retry failed',payload.orderId,e.message);
-    }
+    if((payload._attempts||0)>=MAX_RETRY){ removePendingUpload(payload.orderId); console.warn('Dropped after max retries:',payload.orderId); continue; }
+    try{ await uploadOrder(payload); removePendingUpload(payload.orderId); }
+    catch(e){ bumpAttempt(payload.orderId); console.warn('Retry failed',payload.orderId,e.message); }
   }
 }
 
-// ── History ──
 function saveMyHistory(order){
   const h=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]').filter(x=>x.orderId!==order.id);
   h.unshift({orderId:order.id,code:order.displayCode,at:Date.now()});
@@ -259,10 +247,9 @@ function go(screen){
   window.scrollTo(0,0);
   if(screen==='confirm') fillConfirm();
   if(screen==='success') lucide.createIcons();
-  if(screen==='home') renderRecentOrders();
+  if(screen==='home')    renderRecentOrders();
 }
 
-// ── File handling ──
 const dz=document.getElementById('dropzone'), fi=document.getElementById('fileInput');
 dz.onclick=()=>fi.click();
 fi.onchange=e=>{handleFiles([...e.target.files]); fi.value=''};
@@ -271,13 +258,16 @@ dz.ondragleave=()=>dz.classList.remove('shadow-glow');
 dz.ondrop=e=>{e.preventDefault(); dz.classList.remove('shadow-glow'); handleFiles([...e.dataTransfer.files])};
 function addMoreFiles(){fi.click()}
 function handleFiles(newFiles){
-  newFiles.forEach(f=>{
+  const slots = MAX_FILES - files.length;
+  if (slots <= 0) { toast('Max ' + MAX_FILES + ' files per order'); return; }
+  newFiles.slice(0, slots).forEach(f=>{
     if(!['application/pdf','image/jpeg','image/png'].includes(f.type)){ toast(`Skipped ${f.name} — unsupported`); return; }
     if(f.size>10*1024*1024){ toast(`Skipped ${f.name} — too large (max 10MB)`); return; }
     const r=new FileReader();
     r.onload=e=>{ files.push({id:'F'+Date.now()+Math.random().toString(36).slice(2,6),name:f.name,type:f.type,size:f.size,dataUrl:e.target.result}); renderFiles(); };
     r.readAsDataURL(f);
   });
+  if (newFiles.length > slots) toast(`Only ${slots} slot(s) left — extra files skipped`);
 }
 function removeFile(id){ files=files.filter(f=>f.id!==id); renderFiles(); }
 function renderFiles(){
@@ -321,7 +311,6 @@ function fillConfirm(){
   lucide.createIcons();
 }
 
-// ── Submit ──
 async function submitOrder(){
   if(!files.length)return;
   const btn=document.getElementById('sendBtn');
@@ -330,7 +319,7 @@ async function submitOrder(){
   lucide.createIcons();
 
   const orderId='ORD-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,6).toUpperCase();
-  const code=String(Math.floor(1000+Math.random()*9000));
+  const code=String(Math.floor(100000+Math.random()*900000)); // 6 digits
   const payload={
     orderId, code,
     files:files.map(f=>({name:f.name,type:f.type,size:f.size,dataUrl:f.dataUrl})),
@@ -354,10 +343,8 @@ async function submitOrder(){
     const result=await uploadOrder(payload);
     if(result&&result.order){ cacheOrder(normalizeServerOrder(result.order)); removePendingUpload(orderId); }
     else if(result&&result.success){ removePendingUpload(orderId); }
-  }catch(e){
-    toast('⚠️ Upload is queued — will retry');
-    console.warn(e);
-  }
+  }catch(e){ toast('⚠️ Upload is queued — will retry'); console.warn(e); }
+
   btn.disabled=false;
   btn.innerHTML='<i data-lucide="send" class="w-5 h-5"></i> Send to Shop';
   lucide.createIcons();
@@ -385,9 +372,9 @@ function copyCode(){
 async function cancelMyOrder(){
   if(!myOrderId||!myOrderCode)return;
   try{
-    const r=await apiPost({action:'UPDATE_ORDER',orderId:myOrderId,code:myOrderCode,status:'failed',reason:'Cancelled by customer'});
+    const r=await apiPost({action:'UPDATE_ORDER',orderId:myOrderId,code:myOrderCode,customerCancel:true});
     if(r.success){ await refreshMyOrder(); toast('❌ Order cancelled'); startFreshOrder(); }
-  }catch(e){ toast('Unable to cancel right now'); }
+  }catch(e){ toast('Unable to cancel: '+(e.message||'')); }
 }
 async function refreshMyOrder(){
   if(!myOrderId||!myOrderCode)return null;
