@@ -114,7 +114,7 @@
       <div id="recentList" class="space-y-2"></div>
     </div>
 
-    <p class="mt-6 text-center text-xs text-slate-400">🔒 Files auto-deleted after printing</p>
+    <p class="mt-6 text-center text-xs text-slate-400">🔒 Files auto-deleted after 12 hours</p>
   </section>
 
   <!-- UPLOAD -->
@@ -223,14 +223,13 @@
       <p id="queuePosition" class="text-xs text-slate-500 mt-3"></p>
       <p id="waitEstimate" class="text-xs text-purple-600 font-medium mt-1"></p>
 
-      <div id="cancelWrap" class="mt-5">
+      <div id="cancelWrap" class="mt-5 hidden">
         <button onclick="cancelMyOrder()" class="text-xs text-slate-400 hover:text-red-500 underline">
           Cancel this order
         </button>
-        <p class="text-[10px] text-slate-300 mt-1">Only within 60 seconds</p>
       </div>
 
-      <p class="text-xs text-slate-400 mt-4">🔒 Files deleted after printing</p>
+      <p class="text-xs text-slate-400 mt-4">🔒 Files deleted after 12 hours</p>
     </div>
     <button onclick="startFreshOrder()" class="mt-6 text-sm text-purple-600 font-medium">
       + Send another order
@@ -243,11 +242,11 @@
 <script>
 lucide.createIcons();
 
+// ── YOUR APPS SCRIPT WEB APP URL ──
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzDibZ5LmHB5kpif-UkKa7N0BlTKLvMjwb0B1F_0yOX9PTX_EfkFHO4Vwc9qwTvOBxo5Q/exec';
+
 const DB_KEY = 'xerox_orders';
 const HISTORY_KEY = 'xerox_my_history';
-const CHANNEL_NAME = 'xerox_bus';
-
-const bus = ('BroadcastChannel' in window) ? new BroadcastChannel(CHANNEL_NAME) : null;
 
 let files = [];
 let opts = { color: false, duplex: false };
@@ -259,14 +258,8 @@ function readDB() {
   catch { return {}; }
 }
 function writeDB(db) {
-  try {
-    localStorage.setItem(DB_KEY, JSON.stringify(db));
-    bus?.postMessage({ type: 'update' });
-    return true;
-  } catch (err) {
-    console.error('Storage write failed', err);
-    return false;
-  }
+  try { localStorage.setItem(DB_KEY, JSON.stringify(db)); return true; }
+  catch (err) { console.error('Storage write failed', err); return false; }
 }
 
 function saveMyHistory(order) {
@@ -349,7 +342,7 @@ function handleFiles(newFiles) {
     return ok;
   });
   valid.forEach(f => {
-    if (f.size > 25 * 1024 * 1024) { toast(`Skipped ${f.name} — too large`); return; }
+    if (f.size > 10 * 1024 * 1024) { toast(`Skipped ${f.name} — too large (max 10MB)`); return; }
     const reader = new FileReader();
     reader.onload = (e) => {
       files.push({
@@ -435,15 +428,6 @@ function fillConfirm() {
   lucide.createIcons();
 }
 
-function generateUniqueCode(db) {
-  const existing = new Set(Object.values(db).map(o => o.displayCode));
-  for (let attempt = 0; attempt < 100; attempt++) {
-    const code = String(Math.floor(1000 + Math.random() * 9000));
-    if (!existing.has(code)) return code;
-  }
-  return String(Date.now()).slice(-4);
-}
-
 function submitOrder() {
   if (files.length === 0) return;
   const btn = document.getElementById('sendBtn');
@@ -451,48 +435,58 @@ function submitOrder() {
   btn.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Sending…';
   lucide.createIcons();
 
-  setTimeout(() => {
-    const db = readDB();
-    const displayCode = generateUniqueCode(db);
+  const orderId = 'ORD-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
+  const code = String(Math.floor(1000 + Math.random() * 9000));
 
+  const payload = {
+    orderId,
+    code,
+    files: files.map(f => ({
+      name: f.name,
+      type: f.type,
+      dataUrl: f.dataUrl
+    })),
+    color: opts.color,
+    duplex: opts.duplex
+  };
+
+  fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  })
+  .then(() => {
+    myOrderId = orderId;
+    document.getElementById('dispCode').textContent = code;
+
+    const db = readDB();
     const order = {
-      id: 'ORD-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).slice(2, 6).toUpperCase(),
-      files: files.map(f => ({
-        id: f.id, name: f.name, type: f.type, size: f.size, dataUrl: f.dataUrl,
-        status: 'waiting',
-      })),
+      id: orderId,
+      displayCode: code,
+      files: files.map(f => ({ id: f.id, name: f.name, type: f.type, size: f.size, status: 'waiting' })),
       color: opts.color,
       duplex: opts.duplex,
       copies: 1,
-      price: 0,
-      priceFinal: null,
-      displayCode,
       printStatus: 'waiting',
-      paymentStatus: 'pending',
-      reprintCount: 0,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      createdAt: Date.now()
     };
-    db[order.id] = order;
-
-    if (!writeDB(db)) {
-      alert('Files too large for this demo. Please use smaller files (<2MB total).');
-      btn.disabled = false;
-      btn.innerHTML = '<i data-lucide="send" class="w-5 h-5"></i> Send to Shop';
-      lucide.createIcons();
-      return;
-    }
-
-    myOrderId = order.id;
+    db[orderId] = order;
+    writeDB(db);
     saveMyHistory(order);
 
-    document.getElementById('dispCode').textContent = displayCode;
     document.getElementById('cancelWrap').classList.remove('hidden');
     go('success');
-    startWatchingMyOrder(order.id);
-    renderQueuePosition(order.id);
-    renderWaitEstimate(order.id);
-  }, 500);
+    startWatchingMyOrder(orderId);
+    renderQueuePosition(orderId);
+    renderWaitEstimate(orderId);
+  })
+  .catch(err => {
+    alert('Upload failed. Please check your internet and try again.');
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="send" class="w-5 h-5"></i> Send to Shop';
+    lucide.createIcons();
+  });
 }
 
 function copyCode() {
@@ -536,7 +530,6 @@ function startWatchingMyOrder(orderId) {
   };
 
   statusWatcher = setInterval(tick, 1500);
-  bus?.addEventListener('message', tick);
   window.addEventListener('storage', tick);
   tick();
 }
@@ -619,7 +612,6 @@ function updateLivePill() {
   }
 }
 setInterval(updateLivePill, 2000);
-bus?.addEventListener('message', updateLivePill);
 window.addEventListener('storage', updateLivePill);
 
 function toast(msg) {
