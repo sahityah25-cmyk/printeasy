@@ -115,7 +115,7 @@
         Detected Printers
       </h2>
       <div class="flex items-center gap-2">
-        <span id="printerCount" class="text-xs text-slate-500">0 found</span>
+        <span id="printerCount" class="text-xs text-slate-500">0 found</span><span id="syncStatus" class="ml-2 text-[10px] text-emerald-600">Live</span>
         <button onclick="refreshPrinters()" class="text-xs text-purple-600 hover:text-pink-500 font-medium flex items-center gap-1">
           <i data-lucide="refresh-cw" class="w-3 h-3"></i> Re-detect
         </button>
@@ -421,6 +421,7 @@ lucide.createIcons();
 
 // ── YOUR APPS SCRIPT WEB APP URL (NEW) ──
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyRZibfR-KZIp_tRuqKl8vSdG7efhFJ6p3ZRkA9JrwNL8IV7m4I0TC2O6Tlyq1cKs4jwg/exec';
+const SHOP_TOKEN = 'PE-shop-2026-9fK7xQ2mL8vN4pR6sT1wZ';
 
 const DB_KEY = 'xerox_orders';
 const PRINTERS_KEY = 'xerox_printers';
@@ -448,73 +449,24 @@ const writeDB = (db) => {
 
 /* ── SYNC ORDERS FROM GOOGLE DRIVE ── */
 async function syncOrdersFromDrive() {
-  if (isSyncing) return;
-  isSyncing = true;
-
+  if (isSyncing) return; isSyncing = true;
   try {
-    const res = await fetch(APPS_SCRIPT_URL, { method: 'GET', redirect: 'follow' });
-
-    if (!res.ok) {
-      console.warn('Drive sync HTTP error:', res.status);
-      return;
-    }
-
-    const text = await res.text();
-    let driveOrders;
-
-    try {
-      driveOrders = JSON.parse(text);
-    } catch (parseErr) {
-      console.error('Invalid JSON from Apps Script:', text.slice(0, 300));
-      return;
-    }
-
-    if (!Array.isArray(driveOrders)) {
-      console.error('Unexpected response (not array):', driveOrders);
-      return;
-    }
-
-    const db = readDB();
-    let changed = false;
-    let newCount = 0;
-
-    // ✅ `order` is used instead of reserved word `do`
-    driveOrders.forEach(order => {
-      if (!order || !order.orderId) return;
-
-      if (!db[order.orderId]) {
-        db[order.orderId] = {
-          id: order.orderId,
-          displayCode: order.code,
-          files: (order.files || []).map(f => ({
-            name: f.name,
-            url: f.url,
-            status: 'waiting',
-            type: ''
-          })),
-          color: !!order.color,
-          duplex: !!order.duplex,
-          copies: 1,
-          printStatus: 'waiting',
-          createdAt: new Date(order.timestamp).getTime()
-        };
-        changed = true;
-        newCount++;
-        console.log('✅ New order from Drive:', order.orderId, 'code', order.code);
-      }
-    });
-
-    if (changed) {
-      writeDB(db);
-      renderQueue();
-      playBeep();
-      if (newCount > 0) toast('🆕 ' + newCount + ' new order(s)');
-    }
-  } catch (err) {
-    console.error('Sync failed:', err);
-  } finally {
-    isSyncing = false;
-  }
+    const u = new URL(APPS_SCRIPT_URL); u.searchParams.set('action','ORDERS'); u.searchParams.set('token',SHOP_TOKEN);
+    const res = await fetch(u.toString(), {cache:'no-store'}); if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json(); if(!data.success || !Array.isArray(data.orders)) throw new Error(data.error||'Invalid orders response');
+    const db=readDB(); let changed=false, newCount=0;
+    data.orders.forEach(o=>{ const n=normalizeServerOrder(o); if(!db[n.id]){newCount++;changed=true} else if(JSON.stringify(db[n.id])!==JSON.stringify(n)){changed=true} db[n.id]=n; });
+    // Remove very old local cache entries that no longer exist server-side only after 24h.
+    const serverIds=new Set(data.orders.map(o=>o.orderId));
+    Object.keys(db).forEach(id=>{if(!serverIds.has(id)&&Date.now()-(db[id].createdAt||0)>86400000){delete db[id];changed=true}});
+    if(changed) writeDB(db); renderQueue();
+    if(newCount && !activeJob){playBeep();toast('🆕 '+newCount+' new order(s)')}
+  } catch(e){console.warn('Server sync failed:',e.message); const s=document.getElementById('syncStatus'); if(s)s.textContent='Offline / retrying…'}
+  finally{isSyncing=false}
+}
+function normalizeServerOrder(o){return {id:o.orderId,orderId:o.orderId,displayCode:o.code,code:o.code,files:o.files||[],color:!!o.color,duplex:!!o.duplex,copies:o.copies||1,printStatus:o.printStatus||'waiting',createdAt:new Date(o.timestamp||Date.now()).getTime(),updatedAt:o.updatedAt?new Date(o.updatedAt).getTime():Date.now(),price:o.price||0,priceFinal:o.priceFinal??null,paymentStatus:o.paymentStatus||'pending',notes:o.notes||'',printer:o.printer||'',printerId:o.printerId||'',reprintCount:o.reprintCount||0};}
+async function updateServerOrder(orderId, changes){
+  return fetch(APPS_SCRIPT_URL,{method:'POST',mode:'cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'UPDATE_ORDER',token:SHOP_TOKEN,orderId,...changes})}).then(async r=>{const t=await r.text();let j={};try{j=JSON.parse(t)}catch{}if(!r.ok||j.success===false)throw new Error(j.error||'Update failed');return j});
 }
 
 /* ── SOUND ── */
@@ -897,34 +849,25 @@ function loadOrder(order) {
 }
 
 function renderActiveFiles() {
-  const wrap = document.getElementById('jpFilesList');
-  const files = activeJob.files || [];
-  wrap.innerHTML = files.map((f, i) => {
-    const isImg = (f.type || '').includes('image');
-    const status = f.status || 'waiting';
-    const statusStyle = {
-      waiting:   'bg-amber-100 text-amber-700',
-      printing:  'bg-blue-100 text-blue-700',
-      printed:   'bg-green-100 text-green-700',
-      skipped:   'bg-slate-100 text-slate-500',
-    }[status] || 'bg-amber-100 text-amber-700';
-
-    return `
-      <div class="flex items-center gap-3 p-3 rounded-xl bg-purple-50 border border-purple-100">
-        <div class="w-10 h-10 rounded-xl ${isImg ? 'bg-pink-100' : 'bg-purple-100'} flex items-center justify-center flex-shrink-0">
-          <i data-lucide="${isImg ? 'image' : 'file-text'}" class="w-5 h-5 ${isImg ? 'text-pink-500' : 'text-purple-600'}"></i>
-        </div>
-        <div class="flex-1 min-w-0">
-          <p class="font-medium text-sm truncate text-slate-800">${escapeHTML(f.name)}</p>
-          <p class="text-xs text-slate-400">${f.size ? (f.size / 1024 / 1024).toFixed(2) + ' MB' : '—'}</p>
-        </div>
-        <span class="text-[10px] px-2 py-0.5 rounded-full ${statusStyle} flex-shrink-0">${status}</span>
-        ${f.url ? `<a href="${f.url}" target="_blank" class="p-2 rounded-lg hover:bg-purple-100 text-purple-600 flex-shrink-0" title="Open in Drive">
-          <i data-lucide="external-link" class="w-4 h-4"></i>
-        </a>` : ''}
-      </div>`;
-  }).join('');
-  lucide.createIcons();
+  const wrap=document.getElementById('jpFilesList'), files=activeJob?.files||[];
+  wrap.innerHTML=files.map((f,i)=>{
+    const isImg=(f.type||'').includes('image'), status=f.status||'waiting';
+    const statusStyle={waiting:'bg-amber-100 text-amber-700',printing:'bg-blue-100 text-blue-700',printed:'bg-green-100 text-green-700',skipped:'bg-slate-100 text-slate-500'}[status]||'bg-amber-100 text-amber-700';
+    const view=f.url?`<button onclick="viewOrderFile(${JSON.stringify(f).replace(/"/g,'&quot;')})" class="p-2 rounded-lg hover:bg-pink-100 text-pink-600 flex-shrink-0" title="View ${escapeHTML(f.name)}"><i data-lucide="eye" class="w-4 h-4"></i></button><a href="${escapeHTML(f.url)}" target="_blank" rel="noopener" class="p-2 rounded-lg hover:bg-purple-100 text-purple-600 flex-shrink-0" title="Open file"><i data-lucide="external-link" class="w-4 h-4"></i></a>`:'';
+    return `<div class="flex items-center gap-3 p-3 rounded-xl bg-purple-50 border border-purple-100"><div class="w-10 h-10 rounded-xl ${isImg?'bg-pink-100':'bg-purple-100'} flex items-center justify-center flex-shrink-0"><i data-lucide="${isImg?'image':'file-text'}" class="w-5 h-5 ${isImg?'text-pink-500':'text-purple-600'}"></i></div><div class="flex-1 min-w-0"><p class="font-medium text-sm truncate text-slate-800">${escapeHTML(f.name)}</p><p class="text-xs text-slate-400">${f.size?(f.size/1048576).toFixed(2)+' MB':'—'} · ${escapeHTML(f.type||'file')}</p></div><span class="text-[10px] px-2 py-0.5 rounded-full ${statusStyle} flex-shrink-0">${status}</span><div class="flex items-center gap-1">${view}</div></div>`;
+  }).join(''); lucide.createIcons();
+}
+function viewOrderFile(file){
+  if(!file?.url)return toast('File link unavailable');
+  const name=String(file.name||'').toLowerCase(), type=file.type||'';
+  document.getElementById('viewerName').textContent=file.name||'File'; document.getElementById('viewerMeta').textContent=type||'File preview';
+  const c=document.getElementById('viewerContent'); c.innerHTML=''; viewerZoomLevel=1; applyZoom();
+  if(type==='application/pdf'||name.endsWith('.pdf')){
+    c.innerHTML=`<iframe src="${escapeHTML(file.url)}" class="w-[min(88vw,900px)] h-[70vh] rounded-xl bg-white border border-slate-200" title="PDF preview"></iframe><div class="mt-3 text-center"><a href="${escapeHTML(file.url)}" target="_blank" rel="noopener" class="text-sm text-purple-600 underline">Open PDF in new tab</a></div>`;
+  } else if(type.startsWith('image/')){
+    c.innerHTML=`<img src="${escapeHTML(file.url)}" alt="" class="max-w-full max-h-[70vh] rounded-xl shadow" />`;
+  } else { c.innerHTML=`<div class="p-10 text-center bg-white rounded-2xl"><i data-lucide="file" class="w-12 h-12 mx-auto text-purple-500"></i><p class="mt-3">Preview is not available for this file type.</p><a class="inline-block mt-4 text-purple-600 underline" href="${escapeHTML(file.url)}" target="_blank" rel="noopener">Open file</a></div>`; }
+  document.getElementById('viewerModal').classList.remove('hidden'); lucide.createIcons();
 }
 
 function onEdit() {
@@ -957,145 +900,31 @@ function renderEditToggles() {
   });
 }
 
-function sendToPrinter() {
-  if (!activeJob) return;
-
-  let printer;
-  if (autoRouting) {
-    printer = pickBestPrinter({ ...activeJob, ...editedValues });
-    if (!printer) return toast('❌ No suitable printer — check Setup');
-  } else {
-    const id = document.getElementById('manualPrinter').value;
-    printer = detectedPrinters.find(p => p.id === id);
-    if (!printer) return toast('❌ Selected printer not found');
-  }
-
-  if (editedValues.color && !printer.capabilities?.color) {
-    return toast(`❌ ${printer.name} does not support colour`);
-  }
-
-  const btn = document.getElementById('printBtn');
-  btn.disabled = true;
-  btn.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Printing…';
-  lucide.createIcons();
-
-  const db = readDB();
-  if (!db[activeJob.id]) return;
-  const files = (db[activeJob.id].files || []).map(f => ({ ...f, status: 'printing' }));
-
-  db[activeJob.id] = {
-    ...db[activeJob.id],
-    files,
-    copies: editedValues.copies,
-    color: editedValues.color,
-    duplex: editedValues.duplex,
-    price: editedValues.price === '' ? 0 : editedValues.price,
-    priceFinal: editedValues.price === '' ? null : editedValues.price,
-    notes: editedValues.notes,
-    printer: printer.name,
-    printerId: printer.id,
-    printStatus: 'printing',
-    paymentStatus: 'pending',
-    updatedAt: Date.now(),
-  };
-  writeDB(db);
-  activeJob = db[activeJob.id];
-  document.getElementById('jpStatus').textContent = 'printing';
-  renderActiveFiles();
-  renderQueue();
-
-  const wrap = document.getElementById('printProgress');
-  const bar  = document.getElementById('progressBar');
-  const pct  = document.getElementById('progressPct');
-  const lbl  = document.getElementById('progressLabel');
-  wrap.classList.remove('hidden');
-
-  const totalFiles = files.length;
-  let currentIdx = 0;
-  let p = 0;
-
-  const timer = setInterval(() => {
-    p += 100 / (totalFiles * 4);
-    const fileIdx = Math.min(totalFiles - 1, Math.floor((p / 100) * totalFiles));
-
-    if (fileIdx !== currentIdx) {
-      currentIdx = fileIdx;
-      const db2 = readDB();
-      if (db2[activeJob.id]?.files) {
-        db2[activeJob.id].files = db2[activeJob.id].files.map((f, i) => ({
-          ...f,
-          status: i < fileIdx ? 'printed' : (i === fileIdx ? 'printing' : f.status),
-        }));
-        writeDB(db2);
-        activeJob = db2[activeJob.id];
-        renderActiveFiles();
-      }
-    }
-
-    if (p >= 100) p = 100;
-    bar.style.width = p + '%';
-    pct.textContent = Math.floor(p) + '%';
-    lbl.textContent = totalFiles > 1
-      ? `Printing file ${Math.min(totalFiles, currentIdx + 1)} of ${totalFiles} on ${printer.name}…`
-      : `Printing on ${printer.name}…`;
-
-    if (p >= 100) {
-      clearInterval(timer);
-      finishPrint(printer);
-    }
-  }, 250);
+async function sendToPrinter() {
+  if(!activeJob)return;
+  let printer=autoRouting?pickBestPrinter({...activeJob,...editedValues}):detectedPrinters.find(p=>p.id===document.getElementById('manualPrinter').value);
+  if(!printer)return toast('❌ No suitable printer — check Setup');
+  if(editedValues.color&&!printer.capabilities?.color)return toast(`❌ ${printer.name} does not support colour`);
+  const btn=document.getElementById('printBtn');btn.disabled=true;btn.innerHTML='<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Starting…';lucide.createIcons();
+  const changes={status:'printing',copies:editedValues.copies,color:editedValues.color,duplex:editedValues.duplex,price:editedValues.price===''?0:editedValues.price,priceFinal:editedValues.price===''?null:editedValues.price,notes:editedValues.notes,printer:printer.name,printerId:printer.id};
+  try{
+    const r=await updateServerOrder(activeJob.id,changes); if(!r.success)throw new Error(r.error||'Unable to start');
+    activeJob=normalizeServerOrder(r.order); const db=readDB();db[activeJob.id]=activeJob;writeDB(db);document.getElementById('jpStatus').textContent='printing';renderActiveFiles();renderQueue();
+    const wrap=document.getElementById('printProgress'),bar=document.getElementById('progressBar'),pct=document.getElementById('progressPct'),lbl=document.getElementById('progressLabel');wrap.classList.remove('hidden');
+    // Browser-safe printing: open each file in a new tab. Silent printing requires a local print agent.
+    (activeJob.files||[]).forEach((f,i)=>{if(f.url)setTimeout(()=>window.open(f.url,'_blank','noopener'),i*300)});
+    bar.style.width='100%';pct.textContent='100%';lbl.textContent='Files opened. Print them from the browser print dialog, then click Mark Printed.';
+    btn.disabled=false;btn.innerHTML='<i data-lucide="check-circle-2" class="w-5 h-5"></i> Mark Printed';btn.onclick=markPrinted;lucide.createIcons();
+  }catch(e){toast('❌ '+e.message);btn.disabled=false;btn.innerHTML='<i data-lucide="printer" class="w-5 h-5"></i> Send to Printer';lucide.createIcons()}
+}
+async function markPrinted(){
+  if(!activeJob)return; const btn=document.getElementById('printBtn');btn.disabled=true;
+  try{const r=await updateServerOrder(activeJob.id,{status:'printed'});activeJob=normalizeServerOrder(r.order);const db=readDB();db[activeJob.id]=activeJob;writeDB(db);document.getElementById('jpStatus').textContent='printed';renderActiveFiles();announceReady(activeJob.displayCode);btn.disabled=false;btn.innerHTML='<i data-lucide="check-circle-2" class="w-5 h-5"></i> Mark Collected';btn.onclick=markCollected;lucide.createIcons();toast('✅ Marked ready for collection');renderQueue()}catch(e){btn.disabled=false;toast('❌ '+e.message)}
 }
 
-function finishPrint(printer) {
-  const db = readDB();
-  if (db[activeJob.id]) {
-    db[activeJob.id].printStatus = 'printed';
-    db[activeJob.id].files = (db[activeJob.id].files || []).map(f => ({ ...f, status: 'printed' }));
-    db[activeJob.id].updatedAt = Date.now();
-    writeDB(db);
-    activeJob = db[activeJob.id];
-  }
-  document.getElementById('jpStatus').textContent = 'printed';
-  renderActiveFiles();
+async function markCollected(){if(!activeJob)return;try{await updateServerOrder(activeJob.id,{status:'collected',paymentStatus:'paid'});toast('📦 Collected — ready for next order');await syncOrdersFromDrive();clearActive()}catch(e){toast('❌ '+e.message)}}
 
-  announceReady(activeJob.displayCode);
-
-  const btn = document.getElementById('printBtn');
-  btn.disabled = false;
-  btn.innerHTML = '<i data-lucide="check-circle-2" class="w-5 h-5"></i> Printed — Mark Collected';
-  btn.onclick = markCollected;
-  lucide.createIcons();
-
-  toast('✅ Sent to ' + printer.name + ' · Announced');
-  renderQueue();
-}
-
-function markCollected() {
-  if (!activeJob) return;
-  const db = readDB();
-  if (db[activeJob.id]) {
-    db[activeJob.id].printStatus = 'collected';
-    db[activeJob.id].paymentStatus = 'paid';
-    db[activeJob.id].collectedAt = Date.now();
-    writeDB(db);
-  }
-  toast('📦 Collected — ready for next order');
-  clearActive();
-}
-
-function cancelOrder() {
-  if (!activeJob) return;
-  const reason = prompt('Reason for cancellation?') || 'Cancelled by shop';
-  const db = readDB();
-  if (db[activeJob.id]) {
-    db[activeJob.id].printStatus = 'failed';
-    db[activeJob.id].cancelReason = reason;
-    db[activeJob.id].updatedAt = Date.now();
-    writeDB(db);
-  }
-  toast('❌ Order cancelled');
-  clearActive();
-}
+async function cancelOrder(){if(!activeJob)return;const reason=prompt('Reason for cancellation?')||'Cancelled by shop';try{await updateServerOrder(activeJob.id,{status:'failed',reason});toast('❌ Order cancelled');await syncOrdersFromDrive();clearActive()}catch(e){toast('❌ '+e.message)}}
 
 function clearActive() {
   activeJob = null;
@@ -1105,19 +934,7 @@ function clearActive() {
   renderQueue();
 }
 
-function reprintOrder(orderId) {
-  const db = readDB();
-  const o = db[orderId];
-  if (!o) return;
-  if (activeJob) return toast('Finish current order first');
-
-  o.printStatus = 'waiting';
-  o.reprintCount = (o.reprintCount || 0) + 1;
-  o.updatedAt = Date.now();
-  writeDB(db);
-  toast(`🔁 Reprint queued (#${o.reprintCount})`);
-  renderQueue();
-}
+async function reprintOrder(orderId){const o=readDB()[orderId];if(!o)return;if(activeJob)return toast('Finish current order first');try{const r=await updateServerOrder(orderId,{status:'waiting',reprintCount:(o.reprintCount||0)+1});toast(`🔁 Reprint queued (#${(o.reprintCount||0)+1})`);await syncOrdersFromDrive()}catch(e){toast('❌ '+e.message)}}
 
 function renderQueue() {
   const orders = Object.values(readDB()).sort((a, b) => b.createdAt - a.createdAt);
@@ -1186,13 +1003,7 @@ function renderQueue() {
   lucide.createIcons();
 }
 
-function quickLoad(id) {
-  if (activeJob) return toast('Finish or cancel the current order first');
-  const o = readDB()[id];
-  if (!o) return;
-  if (o.printStatus === 'waiting') loadOrder(o);
-  else toast('This order is ' + o.printStatus + ' — use Reprint if needed');
-}
+async function quickLoad(id){if(activeJob)return toast('Finish or cancel the current order first');try{const u=new URL(APPS_SCRIPT_URL);u.searchParams.set('action','ORDER');u.searchParams.set('orderId',id);u.searchParams.set('token',SHOP_TOKEN);const r=await fetch(u.toString(),{cache:'no-store'}).then(x=>x.json());if(r.success&&r.order){const o=normalizeServerOrder(r.order);const db=readDB();db[id]=o;writeDB(db);if(o.printStatus==='waiting')loadOrder(o);else toast('This order is '+o.printStatus+' — use Reprint if needed')}}catch(e){toast('Unable to load order')}}
 
 function clearAll() {
   if (!confirm('Clear all orders on this device? (Drive files remain until auto-delete)')) return;
