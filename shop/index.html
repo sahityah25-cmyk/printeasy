@@ -419,16 +419,15 @@
 <script>
 lucide.createIcons();
 
+// ── YOUR APPS SCRIPT WEB APP URL ──
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzDibZ5LmHB5kpif-UkKa7N0BlTKLvMjwb0B1F_0yOX9PTX_EfkFHO4Vwc9qwTvOBxo5Q/exec';
+
 const DB_KEY = 'xerox_orders';
 const PRINTERS_KEY = 'xerox_printers';
 const SOUND_KEY = 'xerox_sound';
-const CHANNEL_NAME = 'xerox_bus';
-
-const bus = ('BroadcastChannel' in window) ? new BroadcastChannel(CHANNEL_NAME) : null;
 
 let detectedPrinters = [];
 let activeJob = null;
-let originalJob = null;
 let editedValues = {};
 let viewerZoomLevel = 1;
 let autoRouting = true;
@@ -442,11 +441,45 @@ const readDB = () => {
 const writeDB = (db) => {
   try {
     localStorage.setItem(DB_KEY, JSON.stringify(db));
-    bus?.postMessage({ type: 'update' });
     return true;
   } catch (e) { console.error(e); return false; }
 };
 
+/* ── POLL NEW ORDERS FROM DRIVE ── */
+async function syncOrdersFromDrive() {
+  try {
+    const res = await fetch(APPS_SCRIPT_URL + '?t=' + Date.now());
+    const driveOrders = await res.json();
+
+    const db = readDB();
+    let changed = false;
+
+    driveOrders.forEach(do => {
+      if (!db[do.orderId]) {
+        db[do.orderId] = {
+          id: do.orderId,
+          displayCode: do.code,
+          files: do.files.map(f => ({ name: f.name, url: f.url, status: 'waiting', type: '' })),
+          color: do.color,
+          duplex: do.duplex,
+          copies: 1,
+          printStatus: 'waiting',
+          createdAt: new Date(do.timestamp).getTime()
+        };
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      writeDB(db);
+      renderQueue();
+    }
+  } catch (err) {
+    console.error('Sync failed:', err);
+  }
+}
+
+/* ── SOUND ── */
 function playBeep() {
   if (!soundEnabled) return;
   try {
@@ -484,9 +517,9 @@ function announceReady(code) {
   } catch (e) { /* unsupported */ }
 }
 
+/* ── PRINTERS ── */
 async function refreshPrinters() {
   detectedPrinters = [];
-
   try {
     if (navigator.printers && navigator.printers.getPrinters) {
       const list = await navigator.printers.getPrinters();
@@ -496,10 +529,7 @@ async function refreshPrinters() {
           name: p.name || p.id,
           isDefault: !!p.isDefault,
           isOnline: true,
-          capabilities: {
-            color: !!(p.capabilities?.color),
-            duplex: !!(p.capabilities?.duplex),
-          },
+          capabilities: { color: !!(p.capabilities?.color), duplex: !!(p.capabilities?.duplex) },
           source: 'browser',
         }));
       }
@@ -512,7 +542,6 @@ async function refreshPrinters() {
       detectedPrinters = saved.map(p => ({ ...p, source: 'saved', isOnline: true }));
     }
   }
-
   renderPrinterList();
   renderSetupList();
   updateManualDropdown();
@@ -559,7 +588,6 @@ async function autoDetectPrinters() {
   const status = document.getElementById('detectStatus');
   status.textContent = 'Detecting…';
   detectedPrinters = [];
-
   try {
     if (navigator.printers && navigator.printers.getPrinters) {
       const list = await navigator.printers.getPrinters();
@@ -569,10 +597,7 @@ async function autoDetectPrinters() {
           name: p.name || p.id,
           isDefault: !!p.isDefault,
           isOnline: true,
-          capabilities: {
-            color: !!(p.capabilities?.color),
-            duplex: !!(p.capabilities?.duplex),
-          },
+          capabilities: { color: !!(p.capabilities?.color), duplex: !!(p.capabilities?.duplex) },
         }));
         savePrinters();
         status.textContent = `✅ Found ${detectedPrinters.length} printer(s).`;
@@ -677,66 +702,51 @@ function closeSetup() {
   document.getElementById('setupModal').classList.add('hidden');
 }
 
+/* ── QR ── */
 function openQR() {
   document.getElementById('qrModal').classList.remove('hidden');
-
   const url = new URL('../customer/', window.location.href).href;
   document.getElementById('qrUrl').textContent = url;
 
   const target = document.getElementById('qrTarget');
   target.innerHTML = '';
   new QRCode(target, {
-    text: url,
-    width: 260,
-    height: 260,
-    colorDark: '#1f1b2e',
-    colorLight: '#ffffff',
+    text: url, width: 260, height: 260,
+    colorDark: '#1f1b2e', colorLight: '#ffffff',
     correctLevel: QRCode.CorrectLevel.H,
   });
   lucide.createIcons();
 }
-
-function closeQR() {
-  document.getElementById('qrModal').classList.add('hidden');
-}
+function closeQR() { document.getElementById('qrModal').classList.add('hidden'); }
 
 function printQR() {
   const url = new URL('../customer/', window.location.href).href;
   const qrHtml = document.getElementById('qrTarget').innerHTML;
   const win = window.open('', '_blank');
   win.document.write(`
-    <html>
-      <head>
-        <title>Scan to Print</title>
-        <style>
-          body { font-family: Inter, sans-serif; text-align: center; padding: 60px; }
-          h1 { font-size: 42px; margin-bottom: 10px; }
-          p { color: #666; margin-bottom: 40px; font-size: 16px; }
-          .qr { display: inline-block; padding: 24px; border: 2px solid #eee; border-radius: 20px; }
-          img { display: block; }
-        </style>
-      </head>
-      <body>
-        <h1>📱 Scan to Print</h1>
-        <p>Point your phone camera at the code</p>
-        <div class="qr">${qrHtml}</div>
-        <p style="margin-top: 40px; font-size: 14px;">${url}</p>
-        <script>window.onload = () => window.print();<\/script>
-      </body>
-    </html>`);
+    <html><head><title>Scan to Print</title>
+    <style>
+      body { font-family: Inter, sans-serif; text-align: center; padding: 60px; }
+      h1 { font-size: 42px; margin-bottom: 10px; }
+      p { color: #666; margin-bottom: 40px; font-size: 16px; }
+      .qr { display: inline-block; padding: 24px; border: 2px solid #eee; border-radius: 20px; }
+      img { display: block; }
+    </style></head><body>
+    <h1>📱 Scan to Print</h1>
+    <p>Point your phone camera at the code</p>
+    <div class="qr">${qrHtml}</div>
+    <p style="margin-top: 40px; font-size: 14px;">${url}</p>
+    <script>window.onload = () => window.print();<\/script>
+    </body></html>`);
   win.document.close();
 }
 
+/* ── ROUTING ── */
 function pickBestPrinter(order) {
   const online = detectedPrinters.filter(p => p.isOnline !== false);
   if (online.length === 0) return null;
-
-  let candidates = order.color
-    ? online.filter(p => p.capabilities?.color)
-    : online;
-
+  let candidates = order.color ? online.filter(p => p.capabilities?.color) : online;
   if (candidates.length === 0) candidates = online;
-
   if (order.duplex) {
     const d = candidates.filter(p => p.capabilities?.duplex);
     if (d.length) candidates = d;
@@ -774,6 +784,7 @@ function toggleManualOverride() {
   updateRoutingHint();
 }
 
+/* ── ORDERS ── */
 function startNextOrder() {
   const next = Object.values(readDB())
     .filter(o => o.printStatus === 'waiting')
@@ -784,7 +795,6 @@ function startNextOrder() {
 
 function loadOrder(order) {
   activeJob = order;
-  originalJob = JSON.parse(JSON.stringify(order));
   editedValues = {
     copies: order.copies || 1,
     color:  order.color || false,
@@ -842,9 +852,9 @@ function renderActiveFiles() {
           <p class="text-xs text-slate-400">${f.size ? (f.size / 1024 / 1024).toFixed(2) + ' MB' : '—'}</p>
         </div>
         <span class="text-[10px] px-2 py-0.5 rounded-full ${statusStyle} flex-shrink-0">${status}</span>
-        <button onclick="openViewer(${i})" class="p-2 rounded-lg hover:bg-purple-100 text-purple-600 flex-shrink-0">
-          <i data-lucide="eye" class="w-4 h-4"></i>
-        </button>
+        ${f.url ? `<a href="${f.url}" target="_blank" class="p-2 rounded-lg hover:bg-purple-100 text-purple-600 flex-shrink-0" title="Open in Drive">
+          <i data-lucide="external-link" class="w-4 h-4"></i>
+        </a>` : ''}
       </div>`;
   }).join('');
   lucide.createIcons();
@@ -880,52 +890,6 @@ function renderEditToggles() {
   });
 }
 
-function openViewer(idx) {
-  if (!activeJob) return;
-  const file = activeJob.files[idx];
-  if (!file) return;
-
-  document.getElementById('viewerModal').classList.remove('hidden');
-
-  const isImg = (file.type || '').includes('image');
-  document.getElementById('viewerName').textContent = file.name;
-  document.getElementById('viewerMeta').textContent =
-    ((file.type || '').split('/').pop()).toUpperCase() + ' · ' +
-    (file.size ? (file.size / 1024 / 1024).toFixed(2) + ' MB' : '—');
-  document.getElementById('viewerIcon').setAttribute('data-lucide', isImg ? 'image' : 'file-text');
-  lucide.createIcons();
-
-  const c = document.getElementById('viewerContent');
-  if (file.dataUrl) {
-    if (isImg) {
-      c.innerHTML = `<img src="${file.dataUrl}" class="max-w-full rounded-lg shadow-xl bg-white" />`;
-    } else {
-      c.innerHTML = `<embed src="${file.dataUrl}" type="application/pdf" class="w-[700px] h-[900px] bg-white rounded-lg shadow-xl" />`;
-    }
-  } else {
-    c.innerHTML = `
-      <div class="bg-white rounded-lg shadow-xl w-[600px] aspect-[1/1.414] p-10 flex flex-col items-center justify-center text-center">
-        <i data-lucide="file-warning" class="w-10 h-10 text-purple-400 mb-3"></i>
-        <p class="text-slate-700 font-medium mb-1">Preview unavailable</p>
-      </div>`;
-    lucide.createIcons();
-  }
-  viewerZoomLevel = 1;
-  applyZoom();
-}
-
-function closeViewer() {
-  document.getElementById('viewerModal').classList.add('hidden');
-}
-function zoomViewer(d) {
-  viewerZoomLevel = Math.max(0.5, Math.min(2, viewerZoomLevel + d * 0.25));
-  applyZoom();
-}
-function applyZoom() {
-  document.getElementById('viewerContent').style.transform = `scale(${viewerZoomLevel})`;
-  document.getElementById('viewerZoom').textContent = Math.round(viewerZoomLevel * 100) + '%';
-}
-
 function sendToPrinter() {
   if (!activeJob) return;
 
@@ -953,8 +917,7 @@ function sendToPrinter() {
   const files = (db[activeJob.id].files || []).map(f => ({ ...f, status: 'printing' }));
 
   db[activeJob.id] = {
-    ...db[activeJob.id],
-    files,
+    ...db[activeJob.id], files,
     copies: editedValues.copies,
     color: editedValues.color,
     duplex: editedValues.duplex,
@@ -964,7 +927,6 @@ function sendToPrinter() {
     printer: printer.name,
     printerId: printer.id,
     printStatus: 'printing',
-    paymentStatus: 'pending',
     updatedAt: Date.now(),
   };
   writeDB(db);
@@ -1067,7 +1029,7 @@ function cancelOrder() {
 }
 
 function clearActive() {
-  activeJob = null; originalJob = null;
+  activeJob = null;
   document.getElementById('activeOrder').classList.add('hidden');
   document.getElementById('noActiveOrder').classList.remove('hidden');
   document.getElementById('noActiveOrder').classList.add('fade-up');
@@ -1078,9 +1040,7 @@ function reprintOrder(orderId) {
   const db = readDB();
   const o = db[orderId];
   if (!o) return;
-
   if (activeJob) return toast('Finish current order first');
-
   o.printStatus = 'waiting';
   o.reprintCount = (o.reprintCount || 0) + 1;
   o.updatedAt = Date.now();
@@ -1176,26 +1136,20 @@ function toast(msg) {
   setTimeout(() => t.style.opacity = 0, 2200);
 }
 
-window.addEventListener('storage', (e) => { if (e.key === DB_KEY) renderQueue(); });
-
-bus?.addEventListener('message', (e) => {
-  if (e.data?.type === 'update') renderQueue();
-});
-
-setInterval(renderQueue, 2000);
-
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
-    if (!document.getElementById('viewerModal').classList.contains('hidden')) closeViewer();
     if (!document.getElementById('setupModal').classList.contains('hidden')) closeSetup();
     if (!document.getElementById('qrModal').classList.contains('hidden')) closeQR();
   }
 });
 
+/* ── BOOT ── */
 (async () => {
   await refreshPrinters();
   updateSoundIcon();
   renderQueue();
+  syncOrdersFromDrive();
+  setInterval(syncOrdersFromDrive, 5000);
 })();
 </script>
 </body>
