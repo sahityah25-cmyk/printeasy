@@ -28,11 +28,18 @@
   .modal-backdrop { background:rgba(31,27,46,0.75); backdrop-filter:blur(8px); }
   .toggle { transition:all .2s ease; }
   .toggle .knob { transition:all .2s ease; }
+  .spinner { animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .queue-item-active { background:linear-gradient(90deg,#fce7f3,#f3e8ff) !important; border-color:#f472b6 !important; }
+  .loader-bar { height:3px; background:linear-gradient(90deg,#9333ea,#ec4899,#9333ea); background-size:200% 100%; animation:loading 1.2s linear infinite; }
+  @keyframes loading { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
 </style>
 </head>
 <body class="p-6">
 
 <div class="max-w-7xl mx-auto">
+
+  <div id="topLoader" class="hidden fixed top-0 left-0 right-0 z-[60] loader-bar"></div>
 
   <header class="flex items-center justify-between mb-6">
     <div class="flex items-center gap-3">
@@ -41,7 +48,7 @@
       </a>
       <div>
         <h1 class="text-xl font-bold text-slate-800">Shop <span class="grad-text">Console</span></h1>
-        <p class="text-xs text-slate-500">Auto-detect · One at a time</p>
+        <p class="text-xs text-slate-500">Auto-detect · Live sync · Advanced</p>
       </div>
     </div>
     <div class="flex items-center gap-2">
@@ -220,7 +227,16 @@
         <h2 class="font-semibold flex items-center gap-2 text-slate-800">
           <i data-lucide="list-ordered" class="w-4 h-4 text-pink-500"></i> Queue
         </h2>
-        <button onclick="clearAll()" class="text-xs text-slate-500 hover:text-pink-500">Clear</button>
+        <div class="flex items-center gap-2">
+          <button onclick="toggleAutoSync()" id="autoSyncBtn" class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium" title="Toggle auto-sync">
+            <i data-lucide="radio" class="w-3 h-3 inline"></i> <span id="autoSyncLabel">LIVE</span>
+          </button>
+          <button onclick="clearAll()" class="text-xs text-slate-500 hover:text-pink-500">Clear</button>
+        </div>
+      </div>
+      <div class="mb-3 relative">
+        <input id="queueSearch" type="text" placeholder="Search code or order id…" oninput="renderQueue()"
+          class="w-full bg-white/70 border border-purple-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-pink-400" />
       </div>
       <div id="queueList" class="scroll overflow-y-auto space-y-3 flex-1 pr-1">
         <p class="text-xs text-slate-400 text-center py-8">No orders yet</p>
@@ -360,6 +376,33 @@
   </div>
 </div>
 
+<!-- Order Detail Modal -->
+<div id="orderDetailModal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-6">
+  <div class="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden fade-up shadow-2xl">
+    <div class="flex items-center justify-between p-5 border-b border-purple-100">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-2xl grad-btn flex items-center justify-center shadow-soft">
+          <span id="detailCode" class="font-mono text-sm font-bold text-white">----</span>
+        </div>
+        <div>
+          <p class="font-semibold text-slate-800">Order Details</p>
+          <p id="detailId" class="text-xs text-slate-500 font-mono">#---</p>
+        </div>
+      </div>
+      <button onclick="closeOrderDetail()" class="p-2 rounded-xl hover:bg-pink-100 text-slate-700">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+    <div id="orderDetailBody" class="p-5 overflow-y-auto scroll space-y-4"></div>
+    <div class="p-4 border-t border-purple-100 flex items-center justify-end gap-2">
+      <button onclick="closeOrderDetail()" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm">Close</button>
+      <button id="detailLoadBtn" class="grad-btn text-white font-medium text-sm px-5 py-2.5 rounded-xl flex items-center gap-2">
+        <i data-lucide="play" class="w-4 h-4"></i> Load as Active
+      </button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl bg-slate-900 text-white text-sm opacity-0 transition-opacity z-50"></div>
 
 <script>
@@ -371,6 +414,7 @@ const SHOP_TOKEN      = 'PE-shop-2026-9fK7xQ2mL8vN4pR6sT1wZ';
 const DB_KEY       = 'xerox_orders';
 const PRINTERS_KEY = 'xerox_printers';
 const SOUND_KEY    = 'xerox_sound';
+const AUTOSYNC_KEY = 'xerox_autosync';
 
 let detectedPrinters = [];
 let activeJob = null;
@@ -379,9 +423,13 @@ let editedValues = {};
 let viewerZoomLevel = 1;
 let autoRouting = true;
 let soundEnabled = localStorage.getItem(SOUND_KEY) !== 'false';
+let autoSyncEnabled = localStorage.getItem(AUTOSYNC_KEY) !== 'false';
 let lastWaitingCount = 0;
 let isSyncing = false;
 let syncFailCount = 0;
+let activeOrderPoller = null;
+let detailOrderId = null;
+let autoSyncInterval = null;
 
 function escapeHTML(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function escapeAttr(s){return escapeHTML(s)}
@@ -389,8 +437,22 @@ function escapeAttr(s){return escapeHTML(s)}
 const readDB = () => { try { return JSON.parse(localStorage.getItem(DB_KEY) || '{}'); } catch { return {}; } };
 const writeDB = (db) => { try { localStorage.setItem(DB_KEY, JSON.stringify(db)); return true; } catch (e) { console.error(e); return false; } };
 
+function showLoader(){ document.getElementById('topLoader')?.classList.remove('hidden'); }
+function hideLoader(){ document.getElementById('topLoader')?.classList.add('hidden'); }
+
+function mergeOrder(serverO) {
+  const db = readDB();
+  const local = db[serverO.orderId] || {};
+  const merged = {
+    ...local, ...serverO,
+    files: (serverO.files && serverO.files.length) ? serverO.files : (local.files || [])
+  };
+  return merged;
+}
+
 async function syncOrdersFromDrive() {
   if (isSyncing) return; isSyncing = true;
+  showLoader();
   try {
     const u = new URL(APPS_SCRIPT_URL);
     u.searchParams.set('action','ORDERS');
@@ -402,9 +464,12 @@ async function syncOrdersFromDrive() {
     const db = readDB(); let changed = false, newCount = 0;
     data.orders.forEach(o => {
       const n = normalizeServerOrder(o);
-      if (!db[n.id]) { newCount++; changed = true; }
-      else if (JSON.stringify(db[n.id]) !== JSON.stringify(n)) { changed = true; }
-      db[n.id] = n;
+      const existing = db[n.id];
+      if (!existing) { newCount++; changed = true; db[n.id] = n; }
+      else {
+        const merged = mergeOrder(n);
+        if (JSON.stringify(existing) !== JSON.stringify(merged)) { changed = true; db[n.id] = merged; }
+      }
     });
     const serverIds = new Set(data.orders.map(o => o.orderId));
     Object.keys(db).forEach(id => {
@@ -413,6 +478,17 @@ async function syncOrdersFromDrive() {
     if (changed) writeDB(db);
     renderQueue();
     if (newCount && !activeJob) { playBeep(); toast('🆕 '+newCount+' new order(s)'); }
+    if (activeJob && db[activeJob.id]) {
+      const fresh = db[activeJob.id];
+      if (fresh.printStatus !== activeJob.printStatus || JSON.stringify(fresh.files) !== JSON.stringify(activeJob.files)) {
+        activeJob = fresh;
+        if (!document.getElementById('activeOrder').classList.contains('hidden')) {
+          document.getElementById('jpStatus').textContent = activeJob.printStatus;
+          document.getElementById('jpStatusBadge').className = statusBadgeClass(activeJob.printStatus);
+          renderActiveFiles();
+        }
+      }
+    }
     syncFailCount = 0;
     const s = document.getElementById('syncStatus');
     if (s) { s.textContent = 'Live'; s.className = 'ml-2 text-[10px] text-emerald-600'; }
@@ -424,7 +500,18 @@ async function syncOrdersFromDrive() {
       s.textContent = syncFailCount > 3 ? 'Offline' : 'Retrying…';
       s.className = 'ml-2 text-[10px] ' + (syncFailCount > 3 ? 'text-red-500' : 'text-amber-500');
     }
-  } finally { isSyncing = false; }
+  } finally { isSyncing = false; hideLoader(); }
+}
+
+function statusBadgeClass(s) {
+  const map = {
+    waiting:'bg-amber-100 text-amber-700 border-amber-300',
+    printing:'bg-blue-100 text-blue-700 border-blue-300',
+    printed:'bg-green-100 text-green-700 border-green-300',
+    collected:'bg-emerald-100 text-emerald-700 border-emerald-300',
+    failed:'bg-red-100 text-red-700 border-red-300'
+  };
+  return 'px-2.5 py-1 rounded-full text-xs border ' + (map[s]||map.waiting);
 }
 
 function normalizeServerOrder(o){
@@ -454,6 +541,23 @@ async function updateServerOrder(orderId, changes){
   return j;
 }
 
+/* ── Fetch fresh order — sends both token and code for maximum compatibility ── */
+async function fetchFreshOrder(orderId) {
+  const local = readDB()[orderId];
+  const u = new URL(APPS_SCRIPT_URL);
+  u.searchParams.set('action','ORDER');
+  u.searchParams.set('orderId', orderId);
+  u.searchParams.set('token', SHOP_TOKEN);
+  if (local?.displayCode) u.searchParams.set('code', local.displayCode);
+  u.searchParams.set('_t', Date.now());
+  const r = await fetch(u.toString(), {cache:'no-store'});
+  if (!r.ok) throw new Error('HTTP '+r.status);
+  const j = await r.json();
+  if (!j.success || !j.order) throw new Error(j.error || 'Order not found on server');
+  return normalizeServerOrder(j.order);
+}
+
+/* ── Audio ── */
 let audioCtx = null;
 function unlockAudio(){ try { if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); } catch {} }
 document.addEventListener('click', unlockAudio, {once:true});
@@ -491,6 +595,31 @@ function announceReady(code) {
   } catch (e) {}
 }
 
+function toggleAutoSync() {
+  autoSyncEnabled = !autoSyncEnabled;
+  localStorage.setItem(AUTOSYNC_KEY, autoSyncEnabled);
+  const btn = document.getElementById('autoSyncBtn');
+  const lbl = document.getElementById('autoSyncLabel');
+  if (autoSyncEnabled) {
+    btn.className = 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium';
+    lbl.textContent = 'LIVE';
+    startAutoSync();
+  } else {
+    btn.className = 'text-[10px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 font-medium';
+    lbl.textContent = 'PAUSED';
+    stopAutoSync();
+  }
+}
+function startAutoSync() {
+  stopAutoSync();
+  if (!autoSyncEnabled) return;
+  autoSyncInterval = setInterval(syncOrdersFromDrive, 5000);
+}
+function stopAutoSync() {
+  if (autoSyncInterval) { clearInterval(autoSyncInterval); autoSyncInterval = null; }
+}
+
+/* ── Printers ── */
 async function refreshPrinters() {
   detectedPrinters = [];
   try {
@@ -696,22 +825,39 @@ function startNextOrder() {
   if (!next) return toast('No orders waiting');
   loadOrder(next);
 }
-function loadOrder(order) {
-  activeJob = order;
+
+/* ── Load an order into active workspace. skipFetch=true means the caller already fetched fresh data ── */
+async function loadOrder(order, skipFetch = false) {
+  showLoader();
+  try {
+    let fresh = order;
+    if (!skipFetch) fresh = await fetchFreshOrder(order.id);
+    const db = readDB();
+    db[fresh.id] = mergeOrder(fresh);
+    writeDB(db);
+    activeJob = db[fresh.id];
+  } catch (e) {
+    console.warn('Fresh fetch failed, using local:', e.message);
+    toast('⚠️ Using cached data — ' + e.message);
+    activeJob = order;
+  } finally {
+    hideLoader();
+  }
   editedValues = {
-    copies: order.copies || 1,
-    color: order.color || false,
-    duplex: order.duplex || false,
-    price: order.priceFinal ?? order.price ?? '',
-    notes: order.notes || ''
+    copies: activeJob.copies || 1,
+    color: activeJob.color || false,
+    duplex: activeJob.duplex || false,
+    price: activeJob.priceFinal ?? activeJob.price ?? '',
+    notes: activeJob.notes || ''
   };
   document.getElementById('noActiveOrder').classList.add('hidden');
   document.getElementById('activeOrder').classList.remove('hidden');
   document.getElementById('activeOrder').classList.add('fade-up');
-  document.getElementById('jpId').textContent = '#' + order.id;
-  document.getElementById('jpCode').textContent = order.displayCode || '----';
-  document.getElementById('jpStatus').textContent = order.printStatus;
-  document.getElementById('jpFileCount').textContent = (order.files || []).length;
+  document.getElementById('jpId').textContent = '#' + activeJob.id;
+  document.getElementById('jpCode').textContent = activeJob.displayCode || '----';
+  document.getElementById('jpStatus').textContent = activeJob.printStatus;
+  document.getElementById('jpStatusBadge').className = statusBadgeClass(activeJob.printStatus);
+  document.getElementById('jpFileCount').textContent = (activeJob.files || []).length;
   renderActiveFiles();
   renderEditToggles();
   document.getElementById('editCopies').value = editedValues.copies;
@@ -724,6 +870,29 @@ function loadOrder(order) {
   btn.onclick = sendToPrinter;
   btn.innerHTML = '<i data-lucide="printer" class="w-5 h-5"></i> Send to Printer';
   lucide.createIcons();
+  startActiveOrderPoller();
+}
+
+function startActiveOrderPoller() {
+  stopActiveOrderPoller();
+  activeOrderPoller = setInterval(async () => {
+    if (!activeJob) return;
+    try {
+      const fresh = await fetchFreshOrder(activeJob.id);
+      const db = readDB();
+      db[fresh.id] = mergeOrder(fresh);
+      writeDB(db);
+      activeJob = db[fresh.id];
+      document.getElementById('jpStatus').textContent = activeJob.printStatus;
+      document.getElementById('jpStatusBadge').className = statusBadgeClass(activeJob.printStatus);
+      if (fresh.files?.length && JSON.stringify(fresh.files) !== JSON.stringify(activeFiles)) {
+        renderActiveFiles();
+      }
+    } catch (e) { /* silent */ }
+  }, 8000);
+}
+function stopActiveOrderPoller() {
+  if (activeOrderPoller) { clearInterval(activeOrderPoller); activeOrderPoller = null; }
 }
 
 function renderActiveFiles() {
@@ -764,8 +933,14 @@ function renderActiveFiles() {
   lucide.createIcons();
 }
 
+/* ── Viewer helpers ── */
 function viewOrderFile(i) {
   const file = activeFiles[i];
+  if (!file?.url) return toast('File link unavailable');
+  viewOrderFileByObj(file);
+}
+
+function viewOrderFileByObj(file) {
   if (!file?.url) return toast('File link unavailable');
   const name = String(file.name||'').toLowerCase();
   const type = file.type || '';
@@ -874,6 +1049,7 @@ async function sendToPrinter() {
     activeJob = normalizeServerOrder(r.order);
     const db = readDB(); db[activeJob.id] = activeJob; writeDB(db);
     document.getElementById('jpStatus').textContent = 'printing';
+    document.getElementById('jpStatusBadge').className = statusBadgeClass('printing');
     renderActiveFiles(); renderQueue();
     const wrap = document.getElementById('printProgress');
     const bar = document.getElementById('progressBar');
@@ -903,6 +1079,7 @@ async function markPrinted() {
     activeJob = normalizeServerOrder(r.order);
     const db = readDB(); db[activeJob.id] = activeJob; writeDB(db);
     document.getElementById('jpStatus').textContent = 'printed';
+    document.getElementById('jpStatusBadge').className = statusBadgeClass('printed');
     renderActiveFiles();
     announceReady(activeJob.displayCode);
     btn.disabled = false;
@@ -936,6 +1113,7 @@ async function cancelOrder() {
   } catch (e) { toast('❌ ' + e.message); }
 }
 function clearActive() {
+  stopActiveOrderPoller();
   activeJob = null; activeFiles = [];
   document.getElementById('activeOrder').classList.add('hidden');
   document.getElementById('noActiveOrder').classList.remove('hidden');
@@ -954,14 +1132,22 @@ async function reprintOrder(orderId) {
 }
 
 function renderQueue() {
-  const orders = Object.values(readDB()).sort((a,b) => b.createdAt - a.createdAt);
+  const db = readDB();
+  const search = (document.getElementById('queueSearch')?.value || '').trim().toLowerCase();
+  let orders = Object.values(db).sort((a,b) => b.createdAt - a.createdAt);
+  if (search) {
+    orders = orders.filter(o =>
+      String(o.displayCode||'').toLowerCase().includes(search) ||
+      String(o.id||'').toLowerCase().includes(search)
+    );
+  }
   const list = document.getElementById('queueList');
   if (!list) return;
-  const waiting = orders.filter(o => o.printStatus === 'waiting').length;
+  const waiting = Object.values(db).filter(o => o.printStatus === 'waiting').length;
   document.getElementById('queueCount').textContent = waiting;
   document.getElementById('waitingHint').textContent = waiting + ' order' + (waiting === 1 ? '' : 's') + ' waiting';
   document.getElementById('startNextBtn').disabled = waiting === 0;
-  if (waiting > lastWaitingCount && !activeJob && orders.length > 1) {
+  if (waiting > lastWaitingCount && !activeJob && Object.keys(db).length > 1) {
     playBeep();
     const btn = document.getElementById('startNextBtn');
     btn.classList.add('shadow-glow');
@@ -969,7 +1155,7 @@ function renderQueue() {
   }
   lastWaitingCount = waiting;
   if (!orders.length) {
-    list.innerHTML = '<p class="text-xs text-slate-400 text-center py-8">No orders yet</p>';
+    list.innerHTML = `<p class="text-xs text-slate-400 text-center py-8">${search ? 'No matching orders' : 'No orders yet'}</p>`;
     return;
   }
   const styles = {
@@ -983,12 +1169,12 @@ function renderQueue() {
     const isActive = activeJob && activeJob.id === o.id;
     const fileCount = (o.files || []).length;
     const isDone = o.printStatus === 'printed' || o.printStatus === 'collected';
-    return `<div class="p-3 rounded-xl border transition ${isActive ? 'bg-gradient-to-r from-purple-100 to-pink-100 border-pink-400 shadow-soft' : 'bg-purple-50/60 border-purple-100 hover:border-pink-400'}">
-      <div class="flex items-center justify-between mb-1 cursor-pointer" onclick="quickLoad('${escapeAttr(o.id)}')">
+    return `<div class="p-3 rounded-xl border transition ${isActive ? 'queue-item-active shadow-soft' : 'bg-purple-50/60 border-purple-100 hover:border-pink-400'}">
+      <div class="flex items-center justify-between mb-1 cursor-pointer" onclick="openOrderDetail('${escapeAttr(o.id)}')">
         <span class="font-mono text-base font-bold grad-text tracking-widest">${escapeHTML(o.displayCode)}</span>
         <span class="text-[10px] px-2 py-0.5 rounded-full border ${styles[o.printStatus] || ''}">${escapeHTML(o.printStatus)}</span>
       </div>
-      <p class="text-xs text-slate-700 cursor-pointer" onclick="quickLoad('${escapeAttr(o.id)}')">
+      <p class="text-xs text-slate-700 cursor-pointer" onclick="openOrderDetail('${escapeAttr(o.id)}')">
         ${fileCount} file${fileCount > 1 ? 's' : ''} · ${o.copies || 1}c · ${o.color ? '🎨' : '⚫'}${o.duplex ? ' · ⇄' : ''}
       </p>
       <div class="flex items-center justify-between mt-1">
@@ -998,30 +1184,151 @@ function renderQueue() {
           ${o.reprintCount ? ' · 🔁' + o.reprintCount : ''}
           ${isActive ? ' · <span class="text-pink-500 font-medium">ACTIVE</span>' : ''}
         </p>
-        ${isDone ? `<button onclick="reprintOrder('${escapeAttr(o.id)}')" class="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 hover:bg-purple-200 text-purple-700 font-medium flex items-center gap-1">
-          <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Reprint
-        </button>` : ''}
+        <div class="flex items-center gap-1">
+          <button onclick="event.stopPropagation(); openOrderDetail('${escapeAttr(o.id)}')" class="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 hover:bg-purple-200 text-purple-700 font-medium flex items-center gap-1" title="View details">
+            <i data-lucide="eye" class="w-3 h-3"></i> View
+          </button>
+          ${isDone ? `<button onclick="event.stopPropagation(); reprintOrder('${escapeAttr(o.id)}')" class="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 hover:bg-purple-200 text-purple-700 font-medium flex items-center gap-1">
+            <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Reprint
+          </button>` : ''}
+        </div>
       </div>
     </div>`;
   }).join('');
   lucide.createIcons();
 }
 
+async function openOrderDetail(id) {
+  detailOrderId = id;
+  const modal = document.getElementById('orderDetailModal');
+  const body = document.getElementById('orderDetailBody');
+  modal.classList.remove('hidden');
+  body.innerHTML = `<div class="text-center py-10 text-slate-400"><i data-lucide="loader-2" class="w-8 h-8 mx-auto spinner"></i><p class="mt-2 text-xs">Loading fresh order data…</p></div>`;
+  lucide.createIcons();
+  let o = null;
+  try {
+    o = await fetchFreshOrder(id);
+    const db = readDB();
+    db[o.id] = mergeOrder(o);
+    writeDB(db);
+    renderQueue();
+  } catch (e) {
+    toast('⚠️ ' + e.message);
+    o = readDB()[id];
+    if (!o) {
+      body.innerHTML = `<p class="text-sm text-red-500 text-center py-10">Failed to load: ${escapeHTML(e.message)}</p>`;
+      return;
+    }
+  }
+  document.getElementById('detailCode').textContent = o.displayCode || '----';
+  document.getElementById('detailId').textContent = '#' + o.id;
+  const fileCount = (o.files||[]).length;
+  const statusColor = {
+    waiting:'bg-amber-100 text-amber-700', printing:'bg-blue-100 text-blue-700',
+    printed:'bg-green-100 text-green-700', collected:'bg-emerald-100 text-emerald-700',
+    failed:'bg-red-100 text-red-700'
+  }[o.printStatus] || 'bg-slate-100 text-slate-600';
+  body.innerHTML = `
+    <div class="flex items-center gap-2 flex-wrap">
+      <span class="px-2.5 py-1 rounded-full text-xs font-medium ${statusColor}">${escapeHTML(o.printStatus)}</span>
+      <span class="text-xs text-slate-500">Created ${new Date(o.createdAt).toLocaleString()}</span>
+      ${o.printer ? `<span class="text-xs text-slate-500">· Printer: ${escapeHTML(o.printer)}</span>` : ''}
+      ${o.reprintCount ? `<span class="text-xs text-pink-500">· Reprint #${o.reprintCount}</span>` : ''}
+    </div>
+
+    <div class="grid grid-cols-4 gap-2">
+      <div class="p-3 rounded-xl bg-purple-50 text-center">
+        <p class="text-[10px] text-slate-500">Files</p>
+        <p class="text-lg font-bold text-slate-800">${fileCount}</p>
+      </div>
+      <div class="p-3 rounded-xl bg-purple-50 text-center">
+        <p class="text-[10px] text-slate-500">Copies</p>
+        <p class="text-lg font-bold text-slate-800">${o.copies || 1}</p>
+      </div>
+      <div class="p-3 rounded-xl bg-purple-50 text-center">
+        <p class="text-[10px] text-slate-500">Colour</p>
+        <p class="text-lg font-bold ${o.color ? 'text-pink-500' : 'text-slate-800'}">${o.color ? 'Yes' : 'No'}</p>
+      </div>
+      <div class="p-3 rounded-xl bg-purple-50 text-center">
+        <p class="text-[10px] text-slate-500">Duplex</p>
+        <p class="text-lg font-bold ${o.duplex ? 'text-pink-500' : 'text-slate-800'}">${o.duplex ? 'Yes' : 'No'}</p>
+      </div>
+    </div>
+
+    ${o.priceFinal != null || o.price ? `
+    <div class="p-3 rounded-xl bg-amber-50 border border-amber-100">
+      <p class="text-xs text-amber-700">Amount (₹)</p>
+      <p class="text-xl font-bold text-amber-800">₹${o.priceFinal ?? o.price}</p>
+    </div>` : ''}
+
+    ${o.notes ? `
+    <div class="p-3 rounded-xl bg-purple-50">
+      <p class="text-xs text-slate-500 mb-1">Notes</p>
+      <p class="text-sm text-slate-700">${escapeHTML(o.notes)}</p>
+    </div>` : ''}
+
+    <div>
+      <p class="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2">Files (${fileCount})</p>
+      <div class="space-y-2">
+        ${(o.files||[]).map((f, i) => {
+          const isImg = (f.type||'').includes('image');
+          return `<div class="flex items-center gap-3 p-2.5 rounded-xl bg-purple-50 border border-purple-100">
+            <div class="w-9 h-9 rounded-lg ${isImg ? 'bg-pink-100' : 'bg-purple-100'} flex items-center justify-center flex-shrink-0">
+              <i data-lucide="${isImg ? 'image' : 'file-text'}" class="w-4 h-4 ${isImg ? 'text-pink-500' : 'text-purple-600'}"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="font-medium text-sm truncate text-slate-800">${escapeHTML(f.name)}</p>
+              <p class="text-[10px] text-slate-400">${f.size ? (f.size/1048576).toFixed(2)+' MB' : '—'} · ${escapeHTML(f.type||'file')}</p>
+            </div>
+            ${f.url ? `<button onclick="viewDetailFile('${escapeAttr(o.id)}',${i})" class="p-1.5 rounded-lg hover:bg-pink-100 text-pink-600" title="View">
+              <i data-lucide="eye" class="w-4 h-4"></i>
+            </button>` : ''}
+          </div>`;
+        }).join('') || '<p class="text-xs text-slate-400 text-center py-3">No files attached</p>'}
+      </div>
+    </div>
+  `;
+  lucide.createIcons();
+  const loadBtn = document.getElementById('detailLoadBtn');
+  loadBtn.onclick = () => {
+    closeOrderDetail();
+    if (activeJob) { toast('Finish current order first'); return; }
+    if (o.printStatus !== 'waiting') { toast('Order is ' + o.printStatus + ' — use Reprint instead'); return; }
+    loadOrder(o, /* skipFetch */ true);
+  };
+  loadBtn.disabled = !!activeJob || o.printStatus !== 'waiting';
+  loadBtn.className = loadBtn.disabled
+    ? 'grad-btn opacity-40 cursor-not-allowed text-white font-medium text-sm px-5 py-2.5 rounded-xl flex items-center gap-2'
+    : 'grad-btn text-white font-medium text-sm px-5 py-2.5 rounded-xl flex items-center gap-2';
+}
+function closeOrderDetail() {
+  document.getElementById('orderDetailModal').classList.add('hidden');
+  detailOrderId = null;
+}
+
+function viewDetailFile(orderId, idx) {
+  const o = readDB()[orderId];
+  if (!o?.files?.[idx]?.url) return toast('File link unavailable');
+  viewOrderFileByObj(o.files[idx]);
+}
+
 async function quickLoad(id) {
   if (activeJob) return toast('Finish or cancel the current order first');
+  showLoader();
   try {
-    const u = new URL(APPS_SCRIPT_URL);
-    u.searchParams.set('action','ORDER');
-    u.searchParams.set('orderId', id);
-    u.searchParams.set('token', SHOP_TOKEN);
-    const r = await fetch(u.toString(), {cache:'no-store'}).then(x => x.json());
-    if (r.success && r.order) {
-      const o = normalizeServerOrder(r.order);
-      const db = readDB(); db[id] = o; writeDB(db);
-      if (o.printStatus === 'waiting') loadOrder(o);
-      else toast('This order is ' + o.printStatus + ' — use Reprint if needed');
+    const o = await fetchFreshOrder(id);
+    const db = readDB(); db[id] = mergeOrder(o); writeDB(db);
+    if (o.printStatus === 'waiting') {
+      await loadOrder(o, /* skipFetch */ true);
+    } else {
+      openOrderDetail(id);
+      toast('Order is ' + o.printStatus + ' — use Reprint if needed');
     }
-  } catch (e) { toast('Unable to load order'); }
+  } catch (e) {
+    toast('❌ ' + e.message);
+  } finally {
+    hideLoader();
+  }
 }
 
 function clearAll() {
@@ -1034,7 +1341,8 @@ function clearAll() {
 function toast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.style.opacity = 1;
-  setTimeout(() => t.style.opacity = 0, 2200);
+  clearTimeout(window._toastT);
+  window._toastT = setTimeout(() => t.style.opacity = 0, 2200);
 }
 function closeViewer() { document.getElementById('viewerModal').classList.add('hidden'); }
 function zoomViewer(d) {
@@ -1051,6 +1359,7 @@ document.addEventListener('keydown', (e) => {
     if (!document.getElementById('setupModal').classList.contains('hidden')) closeSetup();
     if (!document.getElementById('qrModal').classList.contains('hidden')) closeQR();
     if (!document.getElementById('viewerModal').classList.contains('hidden')) closeViewer();
+    if (!document.getElementById('orderDetailModal').classList.contains('hidden')) closeOrderDetail();
   }
 });
 
@@ -1060,8 +1369,17 @@ document.addEventListener('keydown', (e) => {
   renderQueue();
   console.log('🔄 Initial sync…');
   await syncOrdersFromDrive();
-  setInterval(syncOrdersFromDrive, 5000);
+  if (autoSyncEnabled) startAutoSync();
+  else {
+    document.getElementById('autoSyncBtn').className = 'text-[10px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 font-medium';
+    document.getElementById('autoSyncLabel').textContent = 'PAUSED';
+  }
 })();
+
+window.openOrderDetail = openOrderDetail;
+window.closeOrderDetail = closeOrderDetail;
+window.viewDetailFile = viewDetailFile;
+window.quickLoad = quickLoad;
 </script>
 </body>
 </html>
