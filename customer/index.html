@@ -8,188 +8,108 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/lucide@latest"></script>
 <style>
-  body {
-    font-family: 'Inter', sans-serif;
-    background: linear-gradient(135deg, #faf5ff 0%, #ffffff 40%, #fdf2f8 100%);
-    min-height: 100vh;
-  }
-  .glass {
-    background: rgba(255,255,255,0.75);
-    backdrop-filter: blur(14px);
-    border: 1px solid rgba(216,180,254,0.45);
-  }
-  .grad-text {
-    background: linear-gradient(90deg, #9333ea, #ec4899);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  .grad-btn {
-    background: linear-gradient(90deg, #9333ea, #ec4899);
-    transition: all .25s ease;
-  }
-  .grad-btn:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: 0 12px 30px -8px rgba(236,72,153,.5);
-  }
-  .grad-btn:disabled { opacity: .4; cursor: not-allowed; }
-  .shadow-soft { box-shadow: 0 10px 40px -10px rgba(168,85,247,.25); }
-  .shadow-glow { box-shadow: 0 0 40px rgba(236,72,153,.35); }
-  .fade-up { animation: fadeUp .45s ease-out; }
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(10px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  .toggle { transition: all .2s ease; }
-  .toggle .knob { transition: all .2s ease; }
-  .file-item { animation: fadeUp .3s ease-out; }
-  .live-pill {
-    position: fixed; top: 12px; right: 12px;
-    z-index: 40; font-size: 11px;
-  }
+  body { font-family:'Inter',sans-serif; background:linear-gradient(135deg,#faf5ff 0%,#ffffff 40%,#fdf2f8 100%); min-height:100vh; }
+  .glass { background:rgba(255,255,255,0.75); backdrop-filter:blur(14px); border:1px solid rgba(216,180,254,0.45); }
+  .grad-text { background:linear-gradient(90deg,#9333ea,#ec4899); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .grad-btn { background:linear-gradient(90deg,#9333ea,#ec4899); transition:all .25s ease; }
+  .grad-btn:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 12px 30px -8px rgba(236,72,153,.5); }
+  .grad-btn:disabled { opacity:.4; cursor:not-allowed; }
+  .shadow-soft { box-shadow:0 10px 40px -10px rgba(168,85,247,.25); }
+  .shadow-glow { box-shadow:0 0 40px rgba(236,72,153,.35); }
+  .fade-up { animation:fadeUp .45s ease-out; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+  .toggle { transition:all .2s ease; }
+  .toggle .knob { transition:all .2s ease; }
+  .file-item { animation:fadeUp .3s ease-out; }
 </style>
 </head>
 <body class="flex justify-center px-4 py-8">
-
-<div id="livePill" class="live-pill glass rounded-full px-3 py-1.5 text-slate-700 hidden">
-  <span class="inline-block w-1.5 h-1.5 rounded-full bg-green-500 mr-1"></span>
-  <span id="livePillText">0 in queue</span>
-</div>
-
 <div class="w-full max-w-md">
-
-  <div class="mb-4">
-    <a href="../" class="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-purple-600 transition">
-      <i data-lucide="arrow-left" class="w-4 h-4"></i>
-      Home
-    </a>
-  </div>
 
   <!-- HOME -->
   <section id="screen-home" class="fade-up">
     <div class="text-center mb-8">
       <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass text-sm font-medium text-purple-700 mb-6">
-        <span class="w-2 h-2 rounded-full bg-pink-500 animate-pulse"></span>
-        Print Studio
+        <span class="w-2 h-2 rounded-full bg-pink-500 animate-pulse"></span> Print Studio
       </div>
-      <h1 class="text-5xl font-bold tracking-tight mb-3">
-        Print in <span class="grad-text">seconds.</span>
-      </h1>
+      <h1 class="text-5xl font-bold tracking-tight mb-3">Print in <span class="grad-text">seconds.</span></h1>
       <p class="text-slate-600">Scan. Upload. Collect.</p>
     </div>
-
     <div class="grid grid-cols-3 gap-3 mb-8">
       <div class="glass rounded-2xl p-4 text-center">
-        <div class="w-10 h-10 mx-auto rounded-xl grad-btn flex items-center justify-center mb-2">
-          <i data-lucide="upload" class="w-5 h-5 text-white"></i>
-        </div>
-        <p class="font-semibold text-sm">Upload</p>
-        <p class="text-xs text-slate-500">Any files</p>
+        <div class="w-10 h-10 mx-auto rounded-xl grad-btn flex items-center justify-center mb-2"><i data-lucide="upload" class="w-5 h-5 text-white"></i></div>
+        <p class="font-semibold text-sm">Upload</p><p class="text-xs text-slate-500">Any files</p>
       </div>
       <div class="glass rounded-2xl p-4 text-center">
-        <div class="w-10 h-10 mx-auto rounded-xl grad-btn flex items-center justify-center mb-2">
-          <i data-lucide="settings-2" class="w-5 h-5 text-white"></i>
-        </div>
-        <p class="font-semibold text-sm">Options</p>
-        <p class="text-xs text-slate-500">Your choice</p>
+        <div class="w-10 h-10 mx-auto rounded-xl grad-btn flex items-center justify-center mb-2"><i data-lucide="settings-2" class="w-5 h-5 text-white"></i></div>
+        <p class="font-semibold text-sm">Options</p><p class="text-xs text-slate-500">Your choice</p>
       </div>
       <div class="glass rounded-2xl p-4 text-center">
-        <div class="w-10 h-10 mx-auto rounded-xl grad-btn flex items-center justify-center mb-2">
-          <i data-lucide="printer" class="w-5 h-5 text-white"></i>
-        </div>
-        <p class="font-semibold text-sm">Collect</p>
-        <p class="text-xs text-slate-500">Show code</p>
+        <div class="w-10 h-10 mx-auto rounded-xl grad-btn flex items-center justify-center mb-2"><i data-lucide="printer" class="w-5 h-5 text-white"></i></div>
+        <p class="font-semibold text-sm">Collect</p><p class="text-xs text-slate-500">Show code</p>
       </div>
     </div>
-
     <button onclick="go('upload')" class="grad-btn w-full text-white font-semibold py-4 rounded-2xl shadow-soft flex items-center justify-center gap-2">
-      <i data-lucide="file-text" class="w-5 h-5"></i>
-      Start
+      <i data-lucide="file-text" class="w-5 h-5"></i> Start
     </button>
-
     <div id="recentOrders" class="hidden mt-6">
       <p class="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2">Recent orders</p>
       <div id="recentList" class="space-y-2"></div>
     </div>
-
     <p class="mt-6 text-center text-xs text-slate-400">🔒 Files auto-deleted after 12 hours</p>
   </section>
 
   <!-- UPLOAD -->
   <section id="screen-upload" class="hidden fade-up">
     <h1 class="text-3xl font-bold mb-1">Your <span class="grad-text">Files</span></h1>
-    <p class="text-slate-500 mb-6 text-sm">Add any number of PDF, JPG, PNG</p>
-
+    <p class="text-slate-500 mb-6 text-sm">Add any number of PDF, JPG, PNG (max 10 MB each)</p>
     <div id="dropzone" class="glass rounded-3xl p-6 text-center transition-all cursor-pointer hover:shadow-soft">
       <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png" multiple class="hidden" />
-      <div class="w-14 h-14 mx-auto rounded-2xl grad-btn flex items-center justify-center mb-3">
-        <i data-lucide="upload" class="w-6 h-6 text-white"></i>
-      </div>
+      <div class="w-14 h-14 mx-auto rounded-2xl grad-btn flex items-center justify-center mb-3"><i data-lucide="upload" class="w-6 h-6 text-white"></i></div>
       <p class="font-semibold">Tap or drop files here</p>
       <p class="text-xs text-slate-400 mt-1">Add as many as you want</p>
     </div>
-
     <div id="fileList" class="hidden mt-4 space-y-2"></div>
-
     <div id="fileSummary" class="hidden glass rounded-2xl p-3 mt-3 text-xs text-slate-600 flex items-center justify-between">
-      <span>
-        <span id="fileCount" class="font-semibold text-slate-800">0</span> files ·
-        <span id="totalSize" class="font-medium">0 MB</span>
-      </span>
-      <button onclick="addMoreFiles()" class="text-purple-600 hover:text-pink-500 font-medium flex items-center gap-1">
-        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add more
-      </button>
+      <span><span id="fileCount" class="font-semibold text-slate-800">0</span> files · <span id="totalSize" class="font-medium">0 MB</span></span>
+      <button onclick="addMoreFiles()" class="text-purple-600 hover:text-pink-500 font-medium flex items-center gap-1"><i data-lucide="plus" class="w-3.5 h-3.5"></i> Add more</button>
     </div>
-
     <div class="glass rounded-3xl p-5 mt-5 space-y-4">
       <p class="text-xs text-slate-500 font-medium uppercase tracking-wide">Apply to all files</p>
       <div class="flex items-center justify-between">
         <span class="text-sm font-medium text-slate-700">Colour</span>
-        <button id="togColor" onclick="toggle('color')" class="toggle w-12 h-7 rounded-full bg-slate-300 relative">
-          <span class="knob absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow"></span>
-        </button>
+        <button id="togColor" onclick="toggle('color')" class="toggle w-12 h-7 rounded-full bg-slate-300 relative"><span class="knob absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow"></span></button>
       </div>
       <div class="flex items-center justify-between">
         <span class="text-sm font-medium text-slate-700">Double-sided</span>
-        <button id="togDuplex" onclick="toggle('duplex')" class="toggle w-12 h-7 rounded-full bg-slate-300 relative">
-          <span class="knob absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow"></span>
-        </button>
+        <button id="togDuplex" onclick="toggle('duplex')" class="toggle w-12 h-7 rounded-full bg-slate-300 relative"><span class="knob absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow"></span></button>
       </div>
     </div>
-
-    <button id="continueBtn" onclick="go('confirm')" disabled
-      class="grad-btn disabled:opacity-40 disabled:cursor-not-allowed w-full mt-5 text-white font-semibold py-4 rounded-2xl flex items-center justify-center gap-2">
+    <button id="continueBtn" onclick="go('confirm')" disabled class="grad-btn disabled:opacity-40 disabled:cursor-not-allowed w-full mt-5 text-white font-semibold py-4 rounded-2xl flex items-center justify-center gap-2">
       Continue <i data-lucide="arrow-right" class="w-4 h-4"></i>
     </button>
-
     <button onclick="go('home')" class="mt-4 text-sm text-slate-500 w-full text-center">← Back</button>
   </section>
 
   <!-- CONFIRM -->
   <section id="screen-confirm" class="hidden fade-up">
     <h1 class="text-3xl font-bold mb-6">Confirm</h1>
-
     <div class="glass rounded-3xl p-6">
       <p class="text-xs text-slate-500 font-medium uppercase tracking-wide mb-3">Files</p>
       <div id="confirmFiles" class="space-y-1.5 mb-5 text-sm"></div>
-
       <div class="border-t border-purple-100 pt-4 space-y-3 text-sm mb-5">
         <div class="flex justify-between"><span class="text-slate-500">Total files</span><span id="cfFileCount" class="font-medium">0</span></div>
         <div class="flex justify-between"><span class="text-slate-500">Colour</span><span id="cfColor" class="font-medium">No</span></div>
         <div class="flex justify-between"><span class="text-slate-500">Double-sided</span><span id="cfDuplex" class="font-medium">No</span></div>
       </div>
-
       <div class="rounded-2xl bg-purple-50 border border-purple-100 p-3 text-xs text-slate-600 mb-6 flex items-start gap-2">
         <i data-lucide="info" class="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0"></i>
         <span>Pay at the counter after printing. The shopkeeper will confirm the amount.</span>
       </div>
-
-      <button id="sendBtn" onclick="submitOrder()"
-        class="grad-btn w-full text-white font-semibold py-4 rounded-2xl flex items-center justify-center gap-2">
-        <i data-lucide="send" class="w-5 h-5"></i>
-        Send to Shop
+      <button id="sendBtn" onclick="submitOrder()" class="grad-btn w-full text-white font-semibold py-4 rounded-2xl flex items-center justify-center gap-2">
+        <i data-lucide="send" class="w-5 h-5"></i> Send to Shop
       </button>
     </div>
-
     <button onclick="go('upload')" class="mt-4 text-sm text-slate-500 w-full text-center">← Back</button>
   </section>
 
@@ -201,36 +121,25 @@
       </div>
       <h1 class="text-2xl font-bold mb-1">Sent to Shop</h1>
       <p class="text-slate-500 text-sm mb-6">Show this code at the counter</p>
-
       <div class="bg-white/70 rounded-2xl p-5 mb-5 border border-purple-200">
         <p class="text-xs text-slate-500 mb-2">Your code</p>
         <div class="flex items-center justify-center gap-3">
-          <p id="dispCode" class="text-6xl font-mono font-bold tracking-[0.3em] grad-text pl-3">0000</p>
-          <button onclick="copyCode()" class="p-2 rounded-lg hover:bg-purple-100">
-            <i data-lucide="copy" class="w-4 h-4 text-purple-600"></i>
-          </button>
+          <p id="dispCode" class="text-6xl font-mono font-bold tracking-[0.3em] grad-text">0000</p>
+          <button onclick="copyCode()" class="p-2 rounded-lg hover:bg-purple-100"><i data-lucide="copy" class="w-4 h-4 text-purple-600"></i></button>
         </div>
       </div>
-
       <div id="statusBadge" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-amber-100 text-amber-700">
         <i data-lucide="clock" class="w-4 h-4"></i>
         <span id="statusLabel">Waiting for shop</span>
       </div>
-
       <p id="queuePosition" class="text-xs text-slate-500 mt-3"></p>
       <p id="waitEstimate" class="text-xs text-purple-600 font-medium mt-1"></p>
-
       <div id="cancelWrap" class="mt-5 hidden">
-        <button onclick="cancelMyOrder()" class="text-xs text-slate-400 hover:text-red-500 underline">
-          Cancel this order
-        </button>
+        <button onclick="cancelMyOrder()" class="text-xs text-slate-400 hover:text-red-500 underline">Cancel this order</button>
       </div>
-
       <p class="text-xs text-slate-400 mt-4">🔒 Files deleted after 12 hours</p>
     </div>
-    <button onclick="startFreshOrder()" class="mt-6 text-sm text-purple-600 font-medium">
-      + Send another order
-    </button>
+    <button onclick="startFreshOrder()" class="mt-6 text-sm text-purple-600 font-medium">+ Send another order</button>
   </section>
 </div>
 
@@ -239,88 +148,335 @@
 <script>
 lucide.createIcons();
 
-// ── YOUR APPS SCRIPT WEB APP URL (NEW) ──
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyRZibfR-KZIp_tRuqKl8vSdG7efhFJ6p3ZRkA9JrwNL8IV7m4I0TC2O6Tlyq1cKs4jwg/exec';
-const SHOP_TOKEN = 'CHANGE_THIS_SHOP_TOKEN';
 const DB_KEY = 'xerox_orders_v2';
 const HISTORY_KEY = 'xerox_my_history_v2';
 const PENDING_KEY = 'xerox_pending_uploads_v2';
+const MAX_RETRY = 5;
 
 let files = [];
-let opts = { color: false, duplex: false };
+let opts = { color:false, duplex:false };
 let myOrderId = null;
 let myOrderCode = null;
 let statusWatcher = null;
 let syncingStatus = false;
 
+// ── Safe escaping ──
+function escapeHTML(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function escapeAttr(s){return escapeHTML(s)}
+
+// ── Storage ──
 function readDB(){ try{return JSON.parse(localStorage.getItem(DB_KEY)||'{}')}catch{return{}} }
 function writeDB(db){ try{localStorage.setItem(DB_KEY,JSON.stringify(db));return true}catch(e){return false} }
-function cacheOrder(o){ if(!o||!o.orderId)return; const db=readDB(); db[o.orderId]={...(db[o.orderId]||{}),...o,id:o.orderId,displayCode:o.code||o.displayCode,createdAt:o.createdAt||new Date(o.timestamp||Date.now()).getTime()}; writeDB(db); }
-function getPendingUploads(){try{return JSON.parse(localStorage.getItem(PENDING_KEY)||'[]')}catch{return[]}}
-function savePendingUpload(p){const a=getPendingUploads().filter(x=>x.orderId!==p.orderId);a.push(p);localStorage.setItem(PENDING_KEY,JSON.stringify(a))}
-function removePendingUpload(id){localStorage.setItem(PENDING_KEY,JSON.stringify(getPendingUploads().filter(x=>x.orderId!==id)))}
+function cacheOrder(o){
+  if(!o||!o.orderId)return;
+  const db=readDB();
+  db[o.orderId]={...(db[o.orderId]||{}),...o,id:o.orderId,displayCode:o.code||o.displayCode,createdAt:o.createdAt||new Date(o.timestamp||Date.now()).getTime()};
+  writeDB(db);
+}
 
+function getPendingUploads(){try{return JSON.parse(localStorage.getItem(PENDING_KEY)||'[]')}catch{return[]}}
+function savePendingUpload(p){const a=getPendingUploads().filter(x=>x.orderId!==p.orderId);a.push({...p,_attempts:0});localStorage.setItem(PENDING_KEY,JSON.stringify(a))}
+function removePendingUpload(id){localStorage.setItem(PENDING_KEY,JSON.stringify(getPendingUploads().filter(x=>x.orderId!==id)))}
+function bumpAttempt(id){const a=getPendingUploads();const i=a.findIndex(x=>x.orderId===id);if(i>=0){a[i]._attempts=(a[i]._attempts||0)+1;localStorage.setItem(PENDING_KEY,JSON.stringify(a))}}
+
+// ── API ──
 async function apiGet(params){
   const u=new URL(APPS_SCRIPT_URL); Object.entries(params||{}).forEach(([k,v])=>u.searchParams.set(k,v));
-  const r=await fetch(u.toString(),{method:'GET',cache:'no-store'}); if(!r.ok)throw new Error('HTTP '+r.status); return r.json();
+  const r=await fetch(u.toString(),{method:'GET',cache:'no-store'});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return r.json();
 }
 async function apiPost(payload){
   const r=await fetch(APPS_SCRIPT_URL,{method:'POST',mode:'cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)});
-  const t=await r.text(); let j={}; try{j=JSON.parse(t)}catch{}; if(!r.ok)throw new Error('HTTP '+r.status); if(j.success===false)throw new Error(j.error||'Request failed'); return j;
+  const t=await r.text(); let j={}; try{j=JSON.parse(t)}catch{}
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  if(j.success===false)throw new Error(j.error||'Request failed');
+  return j;
 }
-
 async function uploadOrder(payload){ return apiPost({action:'CREATE_ORDER',...payload}); }
+
 async function retryPendingUploads(){
-  for(const payload of getPendingUploads()){
-    try{await uploadOrder(payload);removePendingUpload(payload.orderId);console.log('Retry OK',payload.orderId)}catch(e){console.warn('Retry failed',e.message)}
+  const list=getPendingUploads();
+  for(const payload of list){
+    if((payload._attempts||0)>=MAX_RETRY){
+      removePendingUpload(payload.orderId);
+      console.warn('Dropped after max retries:',payload.orderId);
+      continue;
+    }
+    try{
+      await uploadOrder(payload);
+      removePendingUpload(payload.orderId);
+    }catch(e){
+      bumpAttempt(payload.orderId);
+      console.warn('Retry failed',payload.orderId,e.message);
+    }
   }
 }
 
-function saveMyHistory(order){const h=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]').filter(x=>x.orderId!==order.id);h.unshift({orderId:order.id,code:order.displayCode,at:Date.now()});localStorage.setItem(HISTORY_KEY,JSON.stringify(h.slice(0,8)))}
-function renderRecentOrders(){
-  const hist=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]'); const db=readDB(); const wrap=document.getElementById('recentOrders'),list=document.getElementById('recentList');
-  const valid=hist.filter(h=>db[h.orderId]); if(!valid.length){wrap.classList.add('hidden');return} wrap.classList.remove('hidden');
-  list.innerHTML=valid.map(h=>{const o=db[h.orderId];return `<button onclick="reopenOrder('${escapeAttr(h.orderId)}')" class="w-full glass rounded-2xl p-3 flex items-center gap-3 text-left hover:shadow-soft transition"><div class="w-10 h-10 rounded-xl grad-btn flex items-center justify-center flex-shrink-0"><span class="font-mono text-xs font-bold text-white">${escapeHTML(o.displayCode||'----')}</span></div><div class="flex-1 min-w-0"><p class="text-sm font-medium text-slate-800">Code ${escapeHTML(o.displayCode||'----')}</p><p class="text-xs ${statusClass(o.printStatus)} capitalize">${escapeHTML(o.printStatus||'waiting')}</p></div><i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i></button>`}).join('');lucide.createIcons();
+// ── History ──
+function saveMyHistory(order){
+  const h=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]').filter(x=>x.orderId!==order.id);
+  h.unshift({orderId:order.id,code:order.displayCode,at:Date.now()});
+  localStorage.setItem(HISTORY_KEY,JSON.stringify(h.slice(0,8)));
 }
 function statusClass(s){return ({waiting:'text-amber-600',printing:'text-blue-600',printed:'text-green-600',collected:'text-emerald-600',failed:'text-red-500'}[s]||'text-slate-500')}
-
-function reopenOrder(id){const o=readDB()[id];if(!o)return;myOrderId=id;myOrderCode=o.displayCode;document.getElementById('dispCode').textContent=o.displayCode||'----';document.getElementById('cancelWrap').classList.add('hidden');go('success');startWatchingMyOrder(id);}
-function go(screen){document.querySelectorAll('section').forEach(s=>s.classList.add('hidden'));document.getElementById('screen-'+screen).classList.remove('hidden');window.scrollTo(0,0);if(screen==='confirm')fillConfirm();if(screen==='success')lucide.createIcons();if(screen==='home')renderRecentOrders()}
-
-const dz=document.getElementById('dropzone'),fi=document.getElementById('fileInput');
-dz.onclick=()=>fi.click();fi.onchange=e=>{handleFiles([...e.target.files]);fi.value=''};dz.ondragover=e=>{e.preventDefault();dz.classList.add('shadow-glow')};dz.ondragleave=()=>dz.classList.remove('shadow-glow');dz.ondrop=e=>{e.preventDefault();dz.classList.remove('shadow-glow');handleFiles([...e.dataTransfer.files])};
-function addMoreFiles(){fi.click()}
-function handleFiles(newFiles){newFiles.filter(f=>{const ok=['application/pdf','image/jpeg','image/png'].includes(f.type);if(!ok)toast(`Skipped ${f.name} — unsupported`);if(f.size>10*1024*1024){toast(`Skipped ${f.name} — too large (max 10MB)`);return false}return ok}).forEach(f=>{const r=new FileReader();r.onload=e=>{files.push({id:'F'+Date.now()+Math.random().toString(36).slice(2,6),name:f.name,type:f.type,size:f.size,dataUrl:e.target.result});renderFiles()};r.readAsDataURL(f)})}
-function removeFile(id){files=files.filter(f=>f.id!==id);renderFiles()}
-function renderFiles(){const list=document.getElementById('fileList'),summary=document.getElementById('fileSummary');if(!files.length){list.classList.add('hidden');summary.classList.add('hidden');document.getElementById('continueBtn').disabled=true;return}list.classList.remove('hidden');summary.classList.remove('hidden');const total=files.reduce((s,f)=>s+f.size,0);document.getElementById('fileCount').textContent=files.length;document.getElementById('totalSize').textContent=(total/1048576).toFixed(2)+' MB';document.getElementById('continueBtn').disabled=false;list.innerHTML=files.map(f=>`<div class="file-item glass rounded-2xl p-3 flex items-center gap-3"><div class="w-10 h-10 rounded-xl ${f.type.includes('image')?'bg-pink-100':'bg-purple-100'} flex items-center justify-center flex-shrink-0"><i data-lucide="${f.type.includes('image')?'image':'file-text'}" class="w-5 h-5 ${f.type.includes('image')?'text-pink-500':'text-purple-600'}"></i></div><div class="flex-1 min-w-0"><p class="font-medium text-sm truncate text-slate-800">${escapeHTML(f.name)}</p><p class="text-xs text-slate-400">${(f.size/1048576).toFixed(2)} MB</p></div><button onclick="removeFile('${escapeAttr(f.id)}')" class="p-2 rounded-lg hover:bg-pink-100 text-pink-500 flex-shrink-0"><i data-lucide="x" class="w-4 h-4"></i></button></div>`).join('');lucide.createIcons()}
-function escapeHTML(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function escapeAttr(s){return String(s??'').replace(/['\\]/g,'\\$&')}
-function toggle(key){opts[key]=!opts[key];const btn=document.getElementById(key==='color'?'togColor':'togDuplex'),knob=btn.querySelector('.knob');if(opts[key]){btn.classList.remove('bg-slate-300');btn.classList.add('grad-btn');knob.style.left='1.5rem'}else{btn.classList.add('bg-slate-300');btn.classList.remove('grad-btn');knob.style.left='.25rem'}}
-function fillConfirm(){document.getElementById('cfFileCount').textContent=files.length;document.getElementById('cfColor').textContent=opts.color?'Yes':'No';document.getElementById('cfDuplex').textContent=opts.duplex?'Yes':'No';document.getElementById('confirmFiles').innerHTML=files.map(f=>`<div class="flex items-center gap-2 text-slate-700"><i data-lucide="${f.type.includes('image')?'image':'file-text'}" class="w-3.5 h-3.5 text-purple-500"></i><span class="truncate">${escapeHTML(f.name)}</span></div>`).join('');lucide.createIcons()}
-
-async function submitOrder(){
-  if(!files.length)return; const btn=document.getElementById('sendBtn');btn.disabled=true;btn.innerHTML='<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Sending…';lucide.createIcons();
-  const orderId='ORD-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,6).toUpperCase(), code=String(Math.floor(1000+Math.random()*9000));
-  const payload={orderId,code,files:files.map(f=>({name:f.name,type:f.type,size:f.size,dataUrl:f.dataUrl})),color:opts.color,duplex:opts.duplex,copies:1};
-  const local={id:orderId,orderId,displayCode:code,code,files:files.map(f=>({name:f.name,type:f.type,size:f.size,status:'waiting'})),color:opts.color,duplex:opts.duplex,copies:1,printStatus:'waiting',createdAt:Date.now()};
-  cacheOrder(local);saveMyHistory(local);savePendingUpload(payload);myOrderId=orderId;myOrderCode=code;document.getElementById('dispCode').textContent=code;document.getElementById('cancelWrap').classList.remove('hidden');go('success');startWatchingMyOrder(orderId);
-  try{const result=await uploadOrder(payload);if(result&&result.order){cacheOrder(normalizeServerOrder(result.order));removePendingUpload(orderId)}else if(result&&result.success){removePendingUpload(orderId)}}catch(e){toast('⚠️ Upload is queued for retry');console.warn(e)}
-  btn.disabled=false;btn.innerHTML='<i data-lucide="send" class="w-5 h-5"></i> Send Order';lucide.createIcons();
+function renderRecentOrders(){
+  const hist=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');
+  const db=readDB();
+  const wrap=document.getElementById('recentOrders'), list=document.getElementById('recentList');
+  const valid=hist.filter(h=>db[h.orderId]);
+  if(!valid.length){ wrap.classList.add('hidden'); return; }
+  wrap.classList.remove('hidden');
+  list.innerHTML=valid.map(h=>{
+    const o=db[h.orderId];
+    return `<button onclick="reopenOrder('${escapeAttr(h.orderId)}')" class="w-full glass rounded-2xl p-3 flex items-center gap-3 text-left hover:shadow-soft transition">
+      <div class="w-10 h-10 rounded-xl grad-btn flex items-center justify-center flex-shrink-0">
+        <span class="font-mono text-xs font-bold text-white">${escapeHTML(o.displayCode||'----')}</span>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium text-slate-800">Code ${escapeHTML(o.displayCode||'----')}</p>
+        <p class="text-xs ${statusClass(o.printStatus)} capitalize">${escapeHTML(o.printStatus||'waiting')}</p>
+      </div>
+      <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+    </button>`;
+  }).join('');
+  lucide.createIcons();
 }
-function normalizeServerOrder(o){return {id:o.orderId,orderId:o.orderId,displayCode:o.code,code:o.code,files:o.files||[],color:!!o.color,duplex:!!o.duplex,copies:o.copies||1,printStatus:o.printStatus||'waiting',createdAt:new Date(o.timestamp||Date.now()).getTime(),updatedAt:o.updatedAt?new Date(o.updatedAt).getTime():Date.now(),price:o.price||0,priceFinal:o.priceFinal??null,paymentStatus:o.paymentStatus||'pending',notes:o.notes||''}}
 
-function copyCode(){const code=document.getElementById('dispCode').textContent.replace(/\s/g,'');navigator.clipboard?.writeText(code);toast('Code '+code+' copied')}
-async function cancelMyOrder(){if(!myOrderId||!myOrderCode)return;try{const r=await apiPost({action:'UPDATE_ORDER',orderId:myOrderId,code:myOrderCode,status:'failed',reason:'Cancelled by customer'});if(r.success){await refreshMyOrder();toast('❌ Order cancelled');startFreshOrder()}}catch(e){toast('Unable to cancel right now')}}
-async function refreshMyOrder(){if(!myOrderId||!myOrderCode)return;try{const r=await apiGet({action:'ORDER',orderId:myOrderId,code:myOrderCode});if(r&&r.order){cacheOrder(normalizeServerOrder(r.order));return r.order}}catch(e){console.warn('Status sync failed',e.message)}return null}
-function startWatchingMyOrder(orderId){if(statusWatcher)clearInterval(statusWatcher);const tick=async()=>{if(syncingStatus)return;syncingStatus=true;const server=await refreshMyOrder();syncingStatus=false;const db=readDB(),o=db[orderId];if(!o)return;renderStatus(o.printStatus);renderQueuePosition(orderId);renderWaitEstimate(orderId);const cw=document.getElementById('cancelWrap');if(cw)cw.classList.toggle('hidden',o.printStatus!=='waiting');};tick();statusWatcher=setInterval(tick,3000)}
-function renderQueuePosition(orderId){const db=readDB(),mine=db[orderId],el=document.getElementById('queuePosition');if(!el||!mine)return;const waiting=Object.values(db).filter(o=>o.printStatus==='waiting').sort((a,b)=>a.createdAt-b.createdAt);const idx=waiting.findIndex(o=>o.id===orderId);if(idx<0){el.textContent=mine.printStatus==='printing'?'🖨️ Printing now…':mine.printStatus==='printed'?'✅ Ready — go to counter':mine.printStatus==='collected'?'✔️ Collected':mine.printStatus==='failed'?'❌ Cancelled':'';return}el.textContent=idx===0?'⭐ You are next in line':`You are #${idx+1} in queue`}
-function renderWaitEstimate(orderId){const el=document.getElementById('waitEstimate');if(!el)return;const db=readDB(),mine=db[orderId];if(!mine||mine.printStatus!=='waiting'){el.textContent='';return}const ahead=Object.values(db).filter(o=>o.printStatus==='waiting'&&o.createdAt<mine.createdAt).length;const mins=Math.ceil(((ahead+1)*45)/60);el.textContent=mins<=1?'⏱ Under a minute':`⏱ About ${mins} min wait`}
-function renderStatus(status){const el=document.getElementById('statusBadge'),label=document.getElementById('statusLabel'),icon=el.querySelector('i'),map={waiting:['Waiting for shop','bg-amber-100 text-amber-700','clock'],printing:['Printing now…','bg-blue-100 text-blue-700','printer'],printed:['Ready — collect!','bg-green-100 text-green-700','check-circle-2'],collected:['Collected ✓','bg-emerald-100 text-emerald-700','check-circle-2'],failed:['Cancelled','bg-red-100 text-red-700','x-circle']};const [t,c,ico]=map[status]||map.waiting;el.className='inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium '+c;label.textContent=t;icon.setAttribute('data-lucide',ico);lucide.createIcons()}
-function updateLivePill(){const waiting=Object.values(readDB()).filter(o=>o.printStatus==='waiting').length,pill=document.getElementById('livePill'),text=document.getElementById('livePillText');if(waiting>0){pill.classList.remove('hidden');text.textContent=waiting+' in queue'}else pill.classList.add('hidden')}
-function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2200)}
-function startFreshOrder(){if(statusWatcher)clearInterval(statusWatcher);statusWatcher=null;myOrderId=null;myOrderCode=null;files=[];opts={color:false,duplex:false};['togColor','togDuplex'].forEach(id=>{const b=document.getElementById(id);b.className='toggle w-12 h-7 rounded-full bg-slate-300 relative';b.querySelector('.knob').style.left='.25rem'});renderFiles();go('home')}
+function reopenOrder(id){
+  const o=readDB()[id]; if(!o)return;
+  myOrderId=id; myOrderCode=o.displayCode;
+  document.getElementById('dispCode').textContent=o.displayCode||'----';
+  document.getElementById('cancelWrap').classList.add('hidden');
+  go('success');
+  startWatchingMyOrder(id);
+}
 
-updateLivePill();renderRecentOrders();retryPendingUploads();setInterval(retryPendingUploads,30000);setInterval(updateLivePill,2000);
+function go(screen){
+  document.querySelectorAll('section').forEach(s=>s.classList.add('hidden'));
+  document.getElementById('screen-'+screen).classList.remove('hidden');
+  window.scrollTo(0,0);
+  if(screen==='confirm') fillConfirm();
+  if(screen==='success') lucide.createIcons();
+  if(screen==='home') renderRecentOrders();
+}
+
+// ── File handling ──
+const dz=document.getElementById('dropzone'), fi=document.getElementById('fileInput');
+dz.onclick=()=>fi.click();
+fi.onchange=e=>{handleFiles([...e.target.files]); fi.value=''};
+dz.ondragover=e=>{e.preventDefault(); dz.classList.add('shadow-glow')};
+dz.ondragleave=()=>dz.classList.remove('shadow-glow');
+dz.ondrop=e=>{e.preventDefault(); dz.classList.remove('shadow-glow'); handleFiles([...e.dataTransfer.files])};
+function addMoreFiles(){fi.click()}
+function handleFiles(newFiles){
+  newFiles.forEach(f=>{
+    if(!['application/pdf','image/jpeg','image/png'].includes(f.type)){ toast(`Skipped ${f.name} — unsupported`); return; }
+    if(f.size>10*1024*1024){ toast(`Skipped ${f.name} — too large (max 10MB)`); return; }
+    const r=new FileReader();
+    r.onload=e=>{ files.push({id:'F'+Date.now()+Math.random().toString(36).slice(2,6),name:f.name,type:f.type,size:f.size,dataUrl:e.target.result}); renderFiles(); };
+    r.readAsDataURL(f);
+  });
+}
+function removeFile(id){ files=files.filter(f=>f.id!==id); renderFiles(); }
+function renderFiles(){
+  const list=document.getElementById('fileList'), summary=document.getElementById('fileSummary');
+  if(!files.length){ list.classList.add('hidden'); summary.classList.add('hidden'); document.getElementById('continueBtn').disabled=true; return; }
+  list.classList.remove('hidden'); summary.classList.remove('hidden');
+  const total=files.reduce((s,f)=>s+f.size,0);
+  document.getElementById('fileCount').textContent=files.length;
+  document.getElementById('totalSize').textContent=(total/1048576).toFixed(2)+' MB';
+  document.getElementById('continueBtn').disabled=false;
+  list.innerHTML=files.map(f=>`
+    <div class="file-item glass rounded-2xl p-3 flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl ${f.type.includes('image')?'bg-pink-100':'bg-purple-100'} flex items-center justify-center flex-shrink-0">
+        <i data-lucide="${f.type.includes('image')?'image':'file-text'}" class="w-5 h-5 ${f.type.includes('image')?'text-pink-500':'text-purple-600'}"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="font-medium text-sm truncate text-slate-800">${escapeHTML(f.name)}</p>
+        <p class="text-xs text-slate-400">${(f.size/1048576).toFixed(2)} MB</p>
+      </div>
+      <button onclick="removeFile('${escapeAttr(f.id)}')" class="p-2 rounded-lg hover:bg-pink-100 text-pink-500 flex-shrink-0">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>`).join('');
+  lucide.createIcons();
+}
+function toggle(key){
+  opts[key]=!opts[key];
+  const btn=document.getElementById(key==='color'?'togColor':'togDuplex'), knob=btn.querySelector('.knob');
+  if(opts[key]){ btn.classList.remove('bg-slate-300'); btn.classList.add('grad-btn'); knob.style.left='1.5rem'; }
+  else{ btn.classList.add('bg-slate-300'); btn.classList.remove('grad-btn'); knob.style.left='.25rem'; }
+}
+function fillConfirm(){
+  document.getElementById('cfFileCount').textContent=files.length;
+  document.getElementById('cfColor').textContent=opts.color?'Yes':'No';
+  document.getElementById('cfDuplex').textContent=opts.duplex?'Yes':'No';
+  document.getElementById('confirmFiles').innerHTML=files.map(f=>`
+    <div class="flex items-center gap-2 text-slate-700">
+      <i data-lucide="${f.type.includes('image')?'image':'file-text'}" class="w-3.5 h-3.5 text-purple-500"></i>
+      <span class="truncate">${escapeHTML(f.name)}</span>
+    </div>`).join('');
+  lucide.createIcons();
+}
+
+// ── Submit ──
+async function submitOrder(){
+  if(!files.length)return;
+  const btn=document.getElementById('sendBtn');
+  btn.disabled=true;
+  btn.innerHTML='<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Sending…';
+  lucide.createIcons();
+
+  const orderId='ORD-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,6).toUpperCase();
+  const code=String(Math.floor(1000+Math.random()*9000));
+  const payload={
+    orderId, code,
+    files:files.map(f=>({name:f.name,type:f.type,size:f.size,dataUrl:f.dataUrl})),
+    color:opts.color, duplex:opts.duplex, copies:1
+  };
+  const local={
+    id:orderId, orderId, displayCode:code, code,
+    files:files.map(f=>({name:f.name,type:f.type,size:f.size,status:'waiting'})),
+    color:opts.color, duplex:opts.duplex, copies:1,
+    printStatus:'waiting', createdAt:Date.now()
+  };
+
+  cacheOrder(local); saveMyHistory(local); savePendingUpload(payload);
+  myOrderId=orderId; myOrderCode=code;
+  document.getElementById('dispCode').textContent=code;
+  document.getElementById('cancelWrap').classList.remove('hidden');
+  go('success');
+  startWatchingMyOrder(orderId);
+
+  try{
+    const result=await uploadOrder(payload);
+    if(result&&result.order){ cacheOrder(normalizeServerOrder(result.order)); removePendingUpload(orderId); }
+    else if(result&&result.success){ removePendingUpload(orderId); }
+  }catch(e){
+    toast('⚠️ Upload is queued — will retry');
+    console.warn(e);
+  }
+  btn.disabled=false;
+  btn.innerHTML='<i data-lucide="send" class="w-5 h-5"></i> Send to Shop';
+  lucide.createIcons();
+}
+
+function normalizeServerOrder(o){
+  return {
+    id:o.orderId, orderId:o.orderId,
+    displayCode:o.code, code:o.code,
+    files:(o.files||[]).map(f=>({...f})),
+    color:!!o.color, duplex:!!o.duplex, copies:o.copies||1,
+    printStatus:o.printStatus||'waiting',
+    createdAt:new Date(o.timestamp||Date.now()).getTime(),
+    updatedAt:o.updatedAt?new Date(o.updatedAt).getTime():Date.now(),
+    price:o.price||0, priceFinal:o.priceFinal??null,
+    paymentStatus:o.paymentStatus||'pending', notes:o.notes||''
+  };
+}
+
+function copyCode(){
+  const code=document.getElementById('dispCode').textContent.replace(/\s/g,'');
+  navigator.clipboard?.writeText(code);
+  toast('Code '+code+' copied');
+}
+async function cancelMyOrder(){
+  if(!myOrderId||!myOrderCode)return;
+  try{
+    const r=await apiPost({action:'UPDATE_ORDER',orderId:myOrderId,code:myOrderCode,status:'failed',reason:'Cancelled by customer'});
+    if(r.success){ await refreshMyOrder(); toast('❌ Order cancelled'); startFreshOrder(); }
+  }catch(e){ toast('Unable to cancel right now'); }
+}
+async function refreshMyOrder(){
+  if(!myOrderId||!myOrderCode)return null;
+  try{
+    const r=await apiGet({action:'ORDER',orderId:myOrderId,code:myOrderCode});
+    if(r&&r.order){ cacheOrder(normalizeServerOrder(r.order)); return r.order; }
+  }catch(e){ console.warn('Status sync failed',e.message); }
+  return null;
+}
+
+function startWatchingMyOrder(orderId){
+  if(statusWatcher)clearInterval(statusWatcher);
+  const tick=async()=>{
+    if(syncingStatus)return; syncingStatus=true;
+    await refreshMyOrder();
+    syncingStatus=false;
+    const db=readDB(), o=db[orderId];
+    if(!o)return;
+    renderStatus(o.printStatus);
+    renderQueuePosition(orderId);
+    renderWaitEstimate(orderId);
+    const cw=document.getElementById('cancelWrap');
+    if(cw) cw.classList.toggle('hidden', o.printStatus!=='waiting');
+    if(['collected','failed'].includes(o.printStatus)){
+      if(statusWatcher){ clearInterval(statusWatcher); statusWatcher=null; }
+    }
+  };
+  tick();
+  statusWatcher=setInterval(tick,3000);
+}
+
+function renderQueuePosition(orderId){
+  const db=readDB(), mine=db[orderId], el=document.getElementById('queuePosition');
+  if(!el||!mine)return;
+  const waiting=Object.values(db).filter(o=>o.printStatus==='waiting').sort((a,b)=>a.createdAt-b.createdAt);
+  const idx=waiting.findIndex(o=>o.id===orderId);
+  if(idx<0){
+    el.textContent= mine.printStatus==='printing'?'🖨️ Printing now…'
+      : mine.printStatus==='printed'?'✅ Ready — go to counter'
+      : mine.printStatus==='collected'?'✔️ Collected'
+      : mine.printStatus==='failed'?'❌ Cancelled':'';
+    return;
+  }
+  el.textContent= idx===0?'⭐ You are next in line':`You are #${idx+1} in queue`;
+}
+function renderWaitEstimate(orderId){
+  const el=document.getElementById('waitEstimate'); if(!el)return;
+  const db=readDB(), mine=db[orderId];
+  if(!mine||mine.printStatus!=='waiting'){ el.textContent=''; return; }
+  const ahead=Object.values(db).filter(o=>o.printStatus==='waiting'&&o.createdAt<mine.createdAt).length;
+  const mins=Math.ceil(((ahead+1)*45)/60);
+  el.textContent= mins<=1?'⏱ Under a minute':`⏱ About ${mins} min wait`;
+}
+function renderStatus(status){
+  const el=document.getElementById('statusBadge'), label=document.getElementById('statusLabel'), icon=el.querySelector('i');
+  const map={
+    waiting:['Waiting for shop','bg-amber-100 text-amber-700','clock'],
+    printing:['Printing now…','bg-blue-100 text-blue-700','printer'],
+    printed:['Ready — collect!','bg-green-100 text-green-700','check-circle-2'],
+    collected:['Collected ✓','bg-emerald-100 text-emerald-700','check-circle-2'],
+    failed:['Cancelled','bg-red-100 text-red-700','x-circle']
+  };
+  const [t,c,ico]=map[status]||map.waiting;
+  el.className='inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium '+c;
+  label.textContent=t;
+  icon.setAttribute('data-lucide',ico);
+  lucide.createIcons();
+}
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.style.opacity=1;
+  setTimeout(()=>t.style.opacity=0,2200);
+}
+function startFreshOrder(){
+  if(statusWatcher)clearInterval(statusWatcher);
+  statusWatcher=null; myOrderId=null; myOrderCode=null;
+  files=[]; opts={color:false,duplex:false};
+  ['togColor','togDuplex'].forEach(id=>{
+    const b=document.getElementById(id);
+    b.className='toggle w-12 h-7 rounded-full bg-slate-300 relative';
+    b.querySelector('.knob').style.left='.25rem';
+  });
+  renderFiles();
+  go('home');
+}
+
+renderRecentOrders();
+retryPendingUploads();
+setInterval(retryPendingUploads,30000);
 </script>
 </body>
 </html>
