@@ -365,13 +365,12 @@
 <script>
 lucide.createIcons();
 
-// ── CONFIG ──
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyRZibfR-KZIp_tRuqKl8vSdG7efhFJ6p3ZRkA9JrwNL8IV7m4I0TC2O6Tlyq1cKs4jwg/exec';
-const SHOP_TOKEN = 'CHANGE_THIS_SHOP_TOKEN';
+const SHOP_TOKEN      = 'PE-shop-2026-9fK7xQ2mL8vN4pR6sT1wZ';
 
-const DB_KEY = 'xerox_orders';
+const DB_KEY       = 'xerox_orders';
 const PRINTERS_KEY = 'xerox_printers';
-const SOUND_KEY = 'xerox_sound';
+const SOUND_KEY    = 'xerox_sound';
 
 let detectedPrinters = [];
 let activeJob = null;
@@ -384,15 +383,12 @@ let lastWaitingCount = 0;
 let isSyncing = false;
 let syncFailCount = 0;
 
-// ── Escape ──
 function escapeHTML(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function escapeAttr(s){return escapeHTML(s)}
 
-// ── Storage ──
 const readDB = () => { try { return JSON.parse(localStorage.getItem(DB_KEY) || '{}'); } catch { return {}; } };
 const writeDB = (db) => { try { localStorage.setItem(DB_KEY, JSON.stringify(db)); return true; } catch (e) { console.error(e); return false; } };
 
-// ── Server sync ──
 async function syncOrdersFromDrive() {
   if (isSyncing) return; isSyncing = true;
   try {
@@ -446,6 +442,7 @@ function normalizeServerOrder(o){
     reprintCount:o.reprintCount||0
   };
 }
+
 async function updateServerOrder(orderId, changes){
   const r = await fetch(APPS_SCRIPT_URL, {
     method:'POST', mode:'cors',
@@ -457,7 +454,6 @@ async function updateServerOrder(orderId, changes){
   return j;
 }
 
-// ── Sound ──
 let audioCtx = null;
 function unlockAudio(){ try { if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); } catch {} }
 document.addEventListener('click', unlockAudio, {once:true});
@@ -495,7 +491,6 @@ function announceReady(code) {
   } catch (e) {}
 }
 
-// ── Printers ──
 async function refreshPrinters() {
   detectedPrinters = [];
   try {
@@ -626,7 +621,6 @@ function updateManualDropdown() {
 function openSetup() { document.getElementById('setupModal').classList.remove('hidden'); renderSetupList(); lucide.createIcons(); }
 function closeSetup() { document.getElementById('setupModal').classList.add('hidden'); }
 
-// ── QR ──
 function openQR() {
   document.getElementById('qrModal').classList.remove('hidden');
   const url = new URL('../customer/', window.location.href).href;
@@ -660,7 +654,6 @@ function printQR() {
   win.document.close();
 }
 
-// ── Routing ──
 function pickBestPrinter(order) {
   const online = detectedPrinters.filter(p => p.isOnline !== false);
   if (online.length === 0) return null;
@@ -698,7 +691,6 @@ function toggleManualOverride() {
   updateRoutingHint();
 }
 
-// ── Orders ──
 function startNextOrder() {
   const next = Object.values(readDB()).filter(o => o.printStatus === 'waiting').sort((a,b) => a.createdAt - b.createdAt)[0];
   if (!next) return toast('No orders waiting');
@@ -798,7 +790,6 @@ function viewOrderFile(i) {
   lucide.createIcons();
 }
 
-// ── Bulk file actions ──
 function downloadAllFiles() {
   if (!activeFiles.length) return toast('No files');
   let n = 0;
@@ -1063,7 +1054,6 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// ── BOOT ──
 (async () => {
   await refreshPrinters();
   updateSoundIcon();
