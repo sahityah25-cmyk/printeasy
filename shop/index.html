@@ -1161,6 +1161,34 @@ function getImagePreviewUrl(file) {
   return getFileUrl(file);
 }
 
+// URL specifically for the viewer. Never use a Drive download endpoint here,
+// because it can make Chrome download the file instead of rendering it.
+// For Drive files, /preview asks Drive's viewer to render PDFs and supported
+// document types inside the iframe.
+function getViewerUrl(file) {
+  if (!file) return '';
+
+  const raw = String(
+    file.url || file.downloadUrl || file.webContentLink ||
+    file.webViewLink || file.href || file.link || ''
+  ).trim();
+  if (!raw) return '';
+
+  const driveFileMatch = raw.match(/drive\.google\.com\/file\/d\/([^/?#]+)/i);
+  const driveIdMatch = raw.match(/[?&]id=([^&#]+)/i);
+  const driveId = String(
+    file.fileId || file.driveId ||
+    (driveFileMatch ? driveFileMatch[1] : '') ||
+    (driveIdMatch && /drive\.google\.com/i.test(raw) ? driveIdMatch[1] : '')
+  ).trim();
+
+  if (driveId && /drive\.google\.com/i.test(raw)) {
+    return 'https://drive.google.com/file/d/' + encodeURIComponent(driveId) + '/preview';
+  }
+
+  return raw;
+}
+
 function renderActiveFiles() {
   const wrap = document.getElementById('jpFilesList');
   activeFiles = activeJob?.files || [];
@@ -1212,7 +1240,8 @@ function viewOrderFile(i) {
 
 function viewOrderFileByObj(file) {
   const fileUrl = getFileUrl(file);
-  if (!fileUrl) return toast('File link unavailable');
+  const viewerUrl = getViewerUrl(file);
+  if (!viewerUrl) return toast('File link unavailable');
 
   const name = String(file.name || '').toLowerCase();
   const type = String(file.type || '').toLowerCase().split(';')[0].trim();
@@ -1228,12 +1257,12 @@ function viewOrderFileByObj(file) {
   applyZoom();
 
   if (isPdf) {
-    c.innerHTML = `<iframe src="${escapeHTML(fileUrl)}"
+    c.innerHTML = `<iframe src="${escapeHTML(viewerUrl)}"
         class="w-[min(88vw,900px)] h-[70vh] rounded-xl bg-white border border-slate-200"
         title="PDF preview"></iframe>
       <div class="mt-3 text-center">
-        <a href="${escapeHTML(fileUrl)}" target="_blank" rel="noopener"
-           class="text-sm text-purple-600 underline">Open PDF in new tab</a>
+        <a href="${escapeHTML(viewerUrl)}" target="_blank" rel="noopener"
+           class="text-sm text-purple-600 underline">Open PDF viewer</a>
       </div>`;
   } else if (isImg) {
     // Use both the MIME type and filename extension. Some uploads arrive
@@ -1261,11 +1290,18 @@ function viewOrderFileByObj(file) {
         </div>
       </div>`;
   } else {
-    c.innerHTML = `<div class="p-10 text-center bg-white rounded-2xl">
-      <i data-lucide="file" class="w-12 h-12 mx-auto text-purple-500"></i>
-      <p class="mt-3">Preview is not available for this file type.</p>
-      <a class="inline-block mt-4 text-purple-600 underline" href="${escapeHTML(fileUrl)}" target="_blank" rel="noopener">Open file</a>
-    </div>`;
+    // Let the browser/Google Drive viewer render supported document types
+    // (DOC/DOCX/XLS/XLSX/PPT/PPTX and other previewable files) instead of
+    // navigating to a download endpoint.
+    c.innerHTML = `<iframe src="${escapeHTML(viewerUrl)}"
+        class="w-[min(88vw,900px)] h-[70vh] rounded-xl bg-white border border-slate-200"
+        title="File preview"
+        onerror="this.classList.add('hidden');this.nextElementSibling?.classList.remove('hidden');"></iframe>
+      <div class="hidden p-10 text-center bg-white rounded-2xl">
+        <i data-lucide="file" class="w-12 h-12 mx-auto text-purple-500"></i>
+        <p class="mt-3">This file cannot be previewed in the browser.</p>
+        <a class="inline-block mt-4 text-purple-600 underline" href="${escapeHTML(fileUrl)}" target="_blank" rel="noopener">Open original file</a>
+      </div>`;
   }
 
   document.getElementById('viewerModal').classList.remove('hidden');
