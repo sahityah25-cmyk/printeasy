@@ -150,7 +150,7 @@
           <div class="flex items-center gap-2 flex-wrap justify-end">
             <span id="jpCode" class="px-2.5 py-1 rounded-full text-xs bg-purple-100 text-purple-700 border border-purple-300 font-mono font-bold tracking-widest">----</span>
             <span id="jpStatusBadge" class="px-2.5 py-1 rounded-full text-xs bg-amber-100 text-amber-700 border border-amber-300">
-              <span id="jpStatus">waiting</span>
+              <span id="jpStatus">Open</span>
             </span>
             <button onclick="deselectOrder()" title="Close this order" class="p-2 rounded-full hover:bg-slate-100 text-slate-500 transition">
               <i data-lucide="x" class="w-4 h-4"></i>
@@ -224,12 +224,6 @@
             <select id="manualPrinter" class="w-full bg-white border border-purple-200 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-800 outline-none focus:border-pink-400 cursor-pointer"></select>
           </div>
 
-          <div class="mb-3">
-            <button onclick="printAllFiles()" class="glass w-full text-slate-700 text-xs font-medium py-2.5 rounded-xl flex items-center justify-center gap-1.5 hover:shadow-soft">
-              <i data-lucide="printer" class="w-3.5 h-3.5"></i> Print All
-            </button>
-          </div>
-
           <button id="printBtn" onclick="sendToPrinter()"
             class="grad-btn w-full text-white font-semibold py-4 rounded-2xl flex items-center justify-center gap-2 shadow-soft">
             <i data-lucide="printer" class="w-5 h-5"></i> Send to Printer
@@ -259,9 +253,17 @@
           </button>
         </div>
       </div>
-      <div class="mb-3 relative">
-        <input id="queueSearch" type="text" placeholder="Search code or order id…" oninput="renderQueue()"
-          class="w-full bg-white/70 border border-purple-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-pink-400" />
+      <div class="mb-3 space-y-2">
+        <div class="relative">
+          <input id="queueSearch" type="text" placeholder="Search code or order id…" oninput="renderQueue()"
+            class="w-full bg-white/70 border border-purple-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-pink-400" />
+        </div>
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <button onclick="selectAllQueueVisible()" class="text-[10px] px-2.5 py-1.5 rounded-lg bg-purple-100 hover:bg-purple-200 text-purple-700 font-medium">Select visible</button>
+          <button onclick="clearSelectedOrders()" class="text-[10px] px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 font-medium">Clear selected</button>
+          <button onclick="clearCompletedOrders()" class="text-[10px] px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-medium">Clear done</button>
+          <button onclick="clearQueueBatch()" class="text-[10px] px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium">Clear all</button>
+        </div>
       </div>
       <div id="queueList" class="scroll overflow-y-auto space-y-3 flex-1 pr-1">
         <p class="text-xs text-slate-400 text-center py-8">No orders yet</p>
@@ -413,6 +415,7 @@ const DB_KEY       = 'xerox_orders';
 const PRINTERS_KEY = 'xerox_printers';
 const SOUND_KEY    = 'xerox_sound';
 const AUTOSYNC_KEY = 'xerox_autosync';
+const CLEARED_KEY  = 'xerox_cleared_orders';
 
 let detectedPrinters = [];
 let activeJob = null;
@@ -446,6 +449,86 @@ function mergeOrder(serverO) {
   };
 }
 
+/* ── Queue clear helpers ── */
+function readClearedOrders() {
+  try { return JSON.parse(localStorage.getItem(CLEARED_KEY) || '{}'); } catch { return {}; }
+}
+function writeClearedOrders(v) {
+  try { localStorage.setItem(CLEARED_KEY, JSON.stringify(v)); } catch {}
+}
+function isOrderCleared(id) {
+  return !!readClearedOrders()[id];
+}
+function markOrderCleared(id) {
+  const c = readClearedOrders();
+  c[id] = Date.now();
+  writeClearedOrders(c);
+}
+function clearOrderFromQueue(id, silent = false) {
+  id = String(id || '');
+  if (!id) return;
+  if (activeJob && activeJob.id === id) {
+    return toast('Close the active order before clearing it');
+  }
+  markOrderCleared(id);
+  const db = readDB();
+  delete db[id];
+  writeDB(db);
+  renderQueue();
+  if (!silent) toast('🧹 Order cleared from queue');
+}
+function clearSelectedOrders() {
+  const ids = [...document.querySelectorAll('.queue-select:checked')].map(x => x.value);
+  if (!ids.length) return toast('Select at least one order');
+  const clearable = ids.filter(id => !(activeJob && activeJob.id === id));
+  if (!clearable.length) return toast('Active order cannot be cleared');
+  if (!confirm(`Clear ${clearable.length} selected order(s) from the queue?`)) return;
+  clearable.forEach(id => clearOrderFromQueue(id, true));
+  toast(`🧹 Cleared ${clearable.length} order(s)`);
+}
+function selectAllQueueVisible() {
+  document.querySelectorAll('.queue-select').forEach(cb => { cb.checked = true; });
+}
+function clearCompletedOrders() {
+  const db = readDB();
+  const ids = Object.values(db)
+    .filter(o => ['printed','collected','done'].includes(String(o.printStatus).toLowerCase()))
+    .map(o => o.id)
+    .filter(id => !(activeJob && activeJob.id === id));
+  if (!ids.length) return toast('No completed orders to clear');
+  if (!confirm(`Clear ${ids.length} completed order(s) from the queue?`)) return;
+  ids.forEach(id => clearOrderFromQueue(id, true));
+  toast(`🧹 Cleared ${ids.length} completed order(s)`);
+}
+function clearQueueBatch() {
+  const db = readDB();
+  const ids = Object.values(db)
+    .map(o => o.id)
+    .filter(id => !(activeJob && activeJob.id === id));
+  if (!ids.length) return toast('Queue is already clear');
+  if (!confirm(`Clear all ${ids.length} visible queue order(s)? Active order will be kept.`)) return;
+  ids.forEach(id => clearOrderFromQueue(id, true));
+  toast(`🧹 Cleared ${ids.length} order(s)`);
+}
+
+function displayStatus(status) {
+  const s = String(status || 'waiting').toLowerCase();
+  if (s === 'waiting' || s === 'pending' || s === 'open' || s === 'opening') return 'Open';
+  if (s === 'printing') return 'Printing';
+  if (s === 'printed' || s === 'collected' || s === 'done' || s === 'completed') return 'Done';
+  if (s === 'failed' || s === 'cancelled' || s === 'canceled') return 'Cancelled';
+  if (s === 'rejected') return 'Rejected';
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+function displayStatusClass(status) {
+  const s = String(status || 'waiting').toLowerCase();
+  if (['printed','collected','done','completed'].includes(s)) return 'bg-green-100 text-green-700 border-green-300';
+  if (['failed','cancelled','canceled'].includes(s)) return 'bg-red-100 text-red-700 border-red-300';
+  if (s === 'rejected') return 'bg-rose-100 text-rose-700 border-rose-300';
+  if (s === 'printing') return 'bg-blue-100 text-blue-700 border-blue-300';
+  return 'bg-amber-100 text-amber-700 border-amber-300';
+}
+
 /* ── Sync + auto-prune failed/cancelled ── */
 async function syncOrdersFromDrive() {
   if (isSyncing) return; isSyncing = true;
@@ -460,8 +543,14 @@ async function syncOrdersFromDrive() {
     if (!data.success || !Array.isArray(data.orders)) throw new Error(data.error||'Invalid orders response');
     const db = readDB(); let changed = false, newCount = 0, pruned = 0;
 
+    const cleared = readClearedOrders();
     data.orders.forEach(o => {
       const n = normalizeServerOrder(o);
+      // Keep locally-cleared orders out of the queue until the server changes them.
+      if (cleared[n.id] && (n.updatedAt || n.createdAt) <= cleared[n.id]) return;
+      if (cleared[n.id] && (n.updatedAt || n.createdAt) > cleared[n.id]) {
+        delete cleared[n.id];
+      }
       // Auto-prune failed/cancelled from queue
       if (n.printStatus === 'failed' && !activeJob) { return; }
       const existing = db[n.id];
@@ -484,6 +573,7 @@ async function syncOrdersFromDrive() {
       }
     });
 
+    writeClearedOrders(cleared);
     if (changed) writeDB(db);
     renderQueue();
     if (newCount && !activeJob) { playBeep(); toast('🆕 '+newCount+' new order(s)'); }
@@ -492,8 +582,8 @@ async function syncOrdersFromDrive() {
       if (fresh.printStatus !== activeJob.printStatus || JSON.stringify(fresh.files) !== JSON.stringify(activeJob.files)) {
         activeJob = fresh;
         if (!document.getElementById('activeOrder').classList.contains('hidden')) {
-          document.getElementById('jpStatus').textContent = activeJob.printStatus;
-          document.getElementById('jpStatusBadge').className = statusBadgeClass(activeJob.printStatus);
+          document.getElementById('jpStatus').textContent = displayStatus(activeJob.printStatus);
+          document.getElementById('jpStatusBadge').className = displayStatusClass(activeJob.printStatus);
           renderActiveFiles();
         }
       }
@@ -897,8 +987,8 @@ async function selectOrder(id, opts = {}) {
   document.getElementById('activeOrder').classList.add('fade-up');
   document.getElementById('jpId').textContent = '#' + activeJob.id;
   document.getElementById('jpCode').textContent = activeJob.displayCode || '----';
-  document.getElementById('jpStatus').textContent = activeJob.printStatus;
-  document.getElementById('jpStatusBadge').className = statusBadgeClass(activeJob.printStatus);
+  document.getElementById('jpStatus').textContent = displayStatus(activeJob.printStatus);
+  document.getElementById('jpStatusBadge').className = displayStatusClass(activeJob.printStatus);
   document.getElementById('jpFileCount').textContent = (activeJob.files || []).length;
   renderActiveFiles();
   renderEditToggles();
@@ -993,8 +1083,8 @@ function startActiveOrderPoller() {
       db[fresh.id] = mergeOrder(fresh);
       writeDB(db);
       activeJob = db[fresh.id];
-      document.getElementById('jpStatus').textContent = activeJob.printStatus;
-      document.getElementById('jpStatusBadge').className = statusBadgeClass(activeJob.printStatus);
+      document.getElementById('jpStatus').textContent = displayStatus(activeJob.printStatus);
+      document.getElementById('jpStatusBadge').className = displayStatusClass(activeJob.printStatus);
       if (fresh.files?.length && JSON.stringify(fresh.files) !== JSON.stringify(activeFiles)) {
         renderActiveFiles();
       }
@@ -1074,20 +1164,6 @@ function viewOrderFileByObj(file) {
   lucide.createIcons();
 }
 
-function printAllFiles() {
-  if (!activeFiles.length) return toast('No files');
-  let n = 0;
-  activeFiles.forEach((f, i) => {
-    const url = f.downloadUrl || f.url;
-    if (!url) return;
-    setTimeout(() => {
-      const w = window.open(url, '_blank', 'noopener');
-      if (w) setTimeout(() => { try { w.print(); } catch {} }, 800);
-    }, i * 500);
-    n++;
-  });
-  toast(n ? `Opening ${n} file(s) for printing — press Ctrl+P if not auto` : 'No files');
-}
 
 function onEdit() {
   editedValues.copies = Math.max(1, Math.min(200, parseInt(document.getElementById('editCopies').value) || 1));
@@ -1167,7 +1243,7 @@ async function markPrinted() {
     activeJob = normalizeServerOrder(r.order);
     const db = readDB(); db[activeJob.id] = activeJob; writeDB(db);
     document.getElementById('jpStatus').textContent = 'printed';
-    document.getElementById('jpStatusBadge').className = statusBadgeClass('printed');
+    document.getElementById('jpStatusBadge').className = displayStatusClass('printed');
     renderActiveFiles();
     announceReady(activeJob.displayCode);
     btn.disabled = false;
@@ -1213,62 +1289,83 @@ async function reprintOrder(orderId) {
 function renderQueue() {
   const db = readDB();
   const search = (document.getElementById('queueSearch')?.value || '').trim().toLowerCase();
-  // Filter out failed orders from the queue display (they auto-clear)
+  const cleared = readClearedOrders();
+
   let orders = Object.values(db)
-    .filter(o => o.printStatus !== 'failed')
+    .filter(o => !cleared[o.id])
     .sort((a,b) => b.createdAt - a.createdAt);
+
   if (search) {
     orders = orders.filter(o =>
       String(o.displayCode||'').toLowerCase().includes(search) ||
       String(o.id||'').toLowerCase().includes(search)
     );
   }
+
   const list = document.getElementById('queueList');
   if (!list) return;
-  const waiting = Object.values(db).filter(o => o.printStatus === 'waiting').length;
+
+  const waiting = Object.values(db).filter(o =>
+    ['waiting','pending','open','opening'].includes(String(o.printStatus || '').toLowerCase()) &&
+    !cleared[o.id]
+  ).length;
+
   document.getElementById('queueCount').textContent = waiting;
   document.getElementById('waitingHint').textContent = waiting + ' order' + (waiting === 1 ? '' : 's') + ' waiting';
-  if (waiting > lastWaitingCount && Object.keys(db).length > 1) {
-    playBeep();
-  }
+
+  if (waiting > lastWaitingCount && Object.keys(db).length > 1) playBeep();
   lastWaitingCount = waiting;
+
   if (!orders.length) {
     list.innerHTML = `<p class="text-xs text-slate-400 text-center py-8">${search ? 'No matching orders' : 'No orders yet'}</p>`;
     return;
   }
-  const styles = {
-    waiting:'bg-amber-100 text-amber-700 border-amber-300',
-    printing:'bg-blue-100 text-blue-700 border-blue-300',
-    printed:'bg-green-100 text-green-700 border-green-300',
-    collected:'bg-emerald-100 text-emerald-700 border-emerald-300',
-    failed:'bg-red-100 text-red-700 border-red-300'
-  };
+
   list.innerHTML = orders.map(o => {
     const isActive = activeJob && activeJob.id === o.id;
     const fileCount = (o.files || []).length;
-    const isDone = o.printStatus === 'printed' || o.printStatus === 'collected';
-    return `<div class="queue-item p-3 rounded-xl border ${isActive ? 'queue-item-active' : 'bg-purple-50/60 border-purple-100'}"
-        onclick="selectOrder('${escapeAttr(o.id)}')">
-      <div class="flex items-center justify-between mb-1">
-        <span class="font-mono text-base font-bold grad-text tracking-widest">${escapeHTML(o.displayCode)}</span>
-        <span class="text-[10px] px-2 py-0.5 rounded-full border ${styles[o.printStatus] || ''}">${escapeHTML(o.printStatus)}</span>
+    const rawStatus = String(o.printStatus || 'waiting').toLowerCase();
+    const isDone = ['printed','collected','done','completed'].includes(rawStatus);
+    const statusLabel = displayStatus(rawStatus);
+    const statusClass = displayStatusClass(rawStatus);
+
+    return `<div class="queue-item p-3 rounded-xl border ${isActive ? 'queue-item-active' : 'bg-purple-50/60 border-purple-100'}">
+      <div class="flex items-center gap-2 mb-1">
+        <input type="checkbox" class="queue-select w-3.5 h-3.5 accent-purple-600" value="${escapeAttr(o.id)}"
+          onclick="event.stopPropagation()" aria-label="Select ${escapeAttr(o.displayCode || o.id)}">
+        <button onclick="event.stopPropagation(); selectOrder('${escapeAttr(o.id)}')" class="flex-1 min-w-0 text-left">
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-mono text-base font-bold grad-text tracking-widest truncate">${escapeHTML(o.displayCode || o.id)}</span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full border whitespace-nowrap ${statusClass}">${escapeHTML(statusLabel)}</span>
+          </div>
+        </button>
       </div>
-      <p class="text-xs text-slate-700">
-        ${fileCount} file${fileCount > 1 ? 's' : ''} · ${o.copies || 1}c · ${o.color ? '🎨' : '⚫'}${o.duplex ? ' · ⇄' : ''}
-      </p>
-      <div class="flex items-center justify-between mt-1">
-        <p class="text-[10px] text-slate-400">
-          ${new Date(o.createdAt).toLocaleTimeString()}
-          ${o.printer ? ' · ' + escapeHTML(o.printer) : ''}
-          ${o.reprintCount ? ' · 🔁' + o.reprintCount : ''}
-          ${isActive ? ' · <span class="text-pink-500 font-medium">ACTIVE</span>' : ''}
+
+      <button onclick="selectOrder('${escapeAttr(o.id)}')" class="w-full text-left">
+        <p class="text-xs text-slate-700 pl-5">
+          ${fileCount} file${fileCount > 1 ? 's' : ''} · ${o.copies || 1}c · ${o.color ? '🎨' : '⚫'}${o.duplex ? ' · ⇄' : ''}
         </p>
-        ${isDone ? `<button onclick="event.stopPropagation(); reprintOrder('${escapeAttr(o.id)}')" class="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 hover:bg-purple-200 text-purple-700 font-medium flex items-center gap-1">
+        <div class="flex items-center justify-between mt-1 pl-5">
+          <p class="text-[10px] text-slate-400">
+            ${new Date(o.createdAt).toLocaleTimeString()}
+            ${o.printer ? ' · ' + escapeHTML(o.printer) : ''}
+            ${o.reprintCount ? ' · 🔁' + o.reprintCount : ''}
+            ${isActive ? ' · <span class="text-pink-500 font-medium">ACTIVE</span>' : ''}
+          </p>
+        </div>
+      </button>
+
+      <div class="flex items-center justify-end gap-1 mt-2 pl-5">
+        ${isDone ? `<button onclick="event.stopPropagation(); reprintOrder('${escapeAttr(o.id)}')" class="text-[10px] px-2 py-1 rounded-lg bg-purple-100 hover:bg-purple-200 text-purple-700 font-medium flex items-center gap-1">
           <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Reprint
+        </button>` : ''}
+        ${!isActive ? `<button onclick="event.stopPropagation(); clearOrderFromQueue('${escapeAttr(o.id)}')" class="text-[10px] px-2 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 font-medium flex items-center gap-1">
+          <i data-lucide="trash-2" class="w-3 h-3"></i> Clear
         </button>` : ''}
       </div>
     </div>`;
   }).join('');
+
   lucide.createIcons();
 }
 
