@@ -50,7 +50,7 @@
       </a>
       <div>
         <h1 class="text-xl font-bold text-slate-800">Shop <span class="grad-text">Console</span></h1>
-        <p class="text-xs text-slate-500">Click any order to work on it</p>
+        <p class="text-xs text-slate-500">Search or click an Order ID to load it into the console</p>
       </div>
     </div>
     <div class="flex items-center gap-2">
@@ -94,6 +94,36 @@
       <i data-lucide="info" class="w-3 h-3"></i>
       Printers detected automatically. To add one, use Setup (⚙️).
     </p>
+  </div>
+
+  <div class="glass rounded-3xl p-4 mb-6">
+    <div class="flex items-center gap-3 mb-2">
+      <div class="w-9 h-9 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
+        <i data-lucide="search" class="w-4 h-4 text-purple-600"></i>
+      </div>
+      <div>
+        <h2 class="font-semibold text-slate-800">Find Order</h2>
+        <p class="text-[11px] text-slate-500">Enter an Order ID or customer order code and fetch it directly from the backend.</p>
+      </div>
+    </div>
+    <div class="flex gap-2">
+      <div class="relative flex-1">
+        <input id="orderSearchInput" type="text" autocomplete="off"
+          placeholder="Enter Order ID or Order Code…"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();fetchOrderFromSearch();}"
+          class="w-full bg-white/80 border border-purple-200 rounded-xl px-4 py-3 pr-10 text-sm font-medium outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100" />
+        <button type="button" onclick="clearOrderSearch()" title="Clear"
+          class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg hover:bg-purple-100 text-slate-400">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <button id="orderFetchBtn" onclick="fetchOrderFromSearch()"
+        class="grad-btn text-white font-semibold px-5 py-3 rounded-xl flex items-center justify-center gap-2 min-w-[110px]">
+        <i data-lucide="cloud-download" class="w-4 h-4"></i>
+        <span>Fetch Order</span>
+      </button>
+    </div>
+    <div id="orderSearchStatus" class="hidden mt-2 text-xs"></div>
   </div>
 
   <div class="grid grid-cols-3 gap-6">
@@ -191,14 +221,8 @@
             <select id="manualPrinter" class="w-full bg-white border border-purple-200 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-800 outline-none focus:border-pink-400 cursor-pointer"></select>
           </div>
 
-          <div class="grid grid-cols-3 gap-2 mb-3">
-            <button onclick="downloadAllFiles()" class="glass text-slate-700 text-xs font-medium py-2.5 rounded-xl flex items-center justify-center gap-1.5 hover:shadow-soft">
-              <i data-lucide="download" class="w-3.5 h-3.5"></i> Download All
-            </button>
-            <button onclick="openAllFiles()" class="glass text-slate-700 text-xs font-medium py-2.5 rounded-xl flex items-center justify-center gap-1.5 hover:shadow-soft">
-              <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Open All
-            </button>
-            <button onclick="printAllFiles()" class="glass text-slate-700 text-xs font-medium py-2.5 rounded-xl flex items-center justify-center gap-1.5 hover:shadow-soft">
+          <div class="mb-3">
+            <button onclick="printAllFiles()" class="glass w-full text-slate-700 text-xs font-medium py-2.5 rounded-xl flex items-center justify-center gap-1.5 hover:shadow-soft">
               <i data-lucide="printer" class="w-3.5 h-3.5"></i> Print All
             </button>
           </div>
@@ -230,7 +254,6 @@
           <button onclick="toggleAutoSync()" id="autoSyncBtn" class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium" title="Toggle auto-sync">
             <i data-lucide="radio" class="w-3 h-3 inline"></i> <span id="autoSyncLabel">LIVE</span>
           </button>
-          <button onclick="clearAll()" class="text-xs text-slate-500 hover:text-pink-500">Clear</button>
         </div>
       </div>
       <div class="mb-3 relative">
@@ -807,20 +830,54 @@ function toggleManualOverride() {
 }
 
 /* ── Click order → auto-load into workspace ── */
-async function selectOrder(id) {
+async function selectOrder(id, opts = {}) {
+  id = String(id || '').trim();
+  if (!id) return toast('Enter an Order ID');
+
   showLoader();
+  setOrderSearchStatus('Fetching order from backend…', 'text-purple-600');
+  let fresh = null;
+  let lastError = null;
+
+  // The backend/Drive can take a few seconds to expose a newly-created order.
+  // Retry before falling back to the local cache.
+  const delays = [0, 800, 1600, 3000];
+
   try {
-    const fresh = await fetchFreshOrder(id);
+    for (let attempt = 0; attempt < delays.length; attempt++) {
+      if (delays[attempt]) await new Promise(r => setTimeout(r, delays[attempt]));
+      try {
+        fresh = await fetchFreshOrder(id);
+        if (fresh) break;
+      } catch (e) {
+        lastError = e;
+      }
+    }
+
     const db = readDB();
-    db[fresh.id] = mergeOrder(fresh);
-    writeDB(db);
-    activeJob = db[fresh.id];
-  } catch (e) {
-    console.warn('Fresh fetch failed, using local:', e.message);
-    const local = readDB()[id];
-    if (!local) { toast('❌ ' + e.message); hideLoader(); return; }
-    toast('⚠️ Using cached data');
-    activeJob = local;
+
+    if (fresh) {
+      db[fresh.id] = mergeOrder(fresh);
+      writeDB(db);
+      activeJob = db[fresh.id];
+      setOrderSearchStatus(`Loaded ${fresh.displayCode || fresh.id}`, 'text-emerald-600');
+    } else {
+      const local = db[id] || Object.values(db).find(o =>
+        String(o.displayCode || '').toLowerCase() === id.toLowerCase()
+      );
+
+      if (!local) {
+        setOrderSearchStatus(
+          `Order not available yet. ${lastError?.message || 'Try Fetch Order again in a few seconds.'}`,
+          'text-red-600'
+        );
+        toast('❌ Order not found yet — try Fetch Order again');
+        return;
+      }
+
+      activeJob = local;
+      setOrderSearchStatus('Backend is still catching up — showing cached order.', 'text-amber-600');
+    }
   } finally {
     hideLoader();
   }
@@ -833,6 +890,7 @@ async function selectOrder(id) {
     notes: activeJob.notes || ''
   };
 
+  // Load into the existing Order Console only. No separate order-details page/modal.
   document.getElementById('noActiveOrder').classList.add('hidden');
   document.getElementById('activeOrder').classList.remove('hidden');
   document.getElementById('activeOrder').classList.add('fade-up');
@@ -848,6 +906,7 @@ async function selectOrder(id) {
   document.getElementById('editNotes').value = editedValues.notes;
   updateRoutingHint();
   document.getElementById('printProgress').classList.add('hidden');
+
   const btn = document.getElementById('printBtn');
   btn.disabled = false;
   btn.onclick = sendToPrinter;
@@ -855,6 +914,60 @@ async function selectOrder(id) {
   lucide.createIcons();
   renderQueue();
   startActiveOrderPoller();
+
+  if (!opts.keepSearchValue) {
+    const input = document.getElementById('orderSearchInput');
+    if (input) input.value = activeJob.id || activeJob.displayCode || '';
+  }
+}
+
+function setOrderSearchStatus(message, className = 'text-slate-500') {
+  const el = document.getElementById('orderSearchStatus');
+  if (!el) return;
+  el.textContent = message || '';
+  el.className = `mt-2 text-xs ${className}`;
+  el.classList.toggle('hidden', !message);
+}
+
+function clearOrderSearch() {
+  const input = document.getElementById('orderSearchInput');
+  if (input) input.value = '';
+  setOrderSearchStatus('');
+  input?.focus();
+}
+
+async function fetchOrderFromSearch() {
+  const input = document.getElementById('orderSearchInput');
+  const value = String(input?.value || '').trim();
+
+  if (!value) {
+    setOrderSearchStatus('Enter an Order ID or Order Code first.', 'text-amber-600');
+    input?.focus();
+    return;
+  }
+
+  const btn = document.getElementById('orderFetchBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 spinner"></i><span>Fetching…</span>';
+    lucide.createIcons();
+  }
+
+  try {
+    const db = readDB();
+    const local = db[value] || Object.values(db).find(o =>
+      String(o.displayCode || '').toLowerCase() === value.toLowerCase()
+    );
+
+    // selectOrder always verifies against the backend and retries if it is delayed.
+    await selectOrder(local?.id || value, { keepSearchValue: true });
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="cloud-download" class="w-4 h-4"></i><span>Fetch Order</span>';
+      lucide.createIcons();
+    }
+  }
 }
 
 function deselectOrder(silent) {
@@ -960,27 +1073,6 @@ function viewOrderFileByObj(file) {
   lucide.createIcons();
 }
 
-function downloadAllFiles() {
-  if (!activeFiles.length) return toast('No files');
-  let n = 0;
-  activeFiles.forEach((f, i) => {
-    const url = f.downloadUrl || f.url;
-    if (!url) return;
-    setTimeout(() => window.open(url, '_blank', 'noopener'), i * 400);
-    n++;
-  });
-  toast(n ? `Downloading ${n} file(s)…` : 'No downloadable URLs');
-}
-function openAllFiles() {
-  if (!activeFiles.length) return toast('No files');
-  let n = 0;
-  activeFiles.forEach((f, i) => {
-    if (!f.url) return;
-    setTimeout(() => window.open(f.url, '_blank', 'noopener'), i * 400);
-    n++;
-  });
-  toast(n ? `Opening ${n} file(s)…` : 'No preview URLs available');
-}
 function printAllFiles() {
   if (!activeFiles.length) return toast('No files');
   let n = 0;
@@ -1179,13 +1271,6 @@ function renderQueue() {
   lucide.createIcons();
 }
 
-function clearAll() {
-  if (!confirm('Clear all orders on this device? (Drive files remain until auto-delete)')) return;
-  localStorage.removeItem(DB_KEY);
-  lastWaitingCount = 0;
-  deselectOrder(true);
-  renderQueue();
-}
 function toast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.style.opacity = 1;
@@ -1224,6 +1309,8 @@ document.addEventListener('keydown', (e) => {
 })();
 
 window.selectOrder = selectOrder;
+window.fetchOrderFromSearch = fetchOrderFromSearch;
+window.clearOrderSearch = clearOrderSearch;
 window.deselectOrder = deselectOrder;
 window.reprintOrder = reprintOrder;
 window.viewOrderFile = viewOrderFile;
