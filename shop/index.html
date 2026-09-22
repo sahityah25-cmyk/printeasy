@@ -1134,6 +1134,33 @@ function isImageFile(file) {
     /\.(png|jpe?g|webp|gif|bmp|svg|avif|heic|heif)$/i.test(name);
 }
 
+// URL specifically for INLINE image preview.
+// Google Drive's download endpoint can force a download in some browsers,
+// so use Drive's thumbnail endpoint for the <img> preview instead.
+function getImagePreviewUrl(file) {
+  if (!file) return '';
+
+  const raw = String(
+    file.url || file.downloadUrl || file.webContentLink ||
+    file.webViewLink || file.href || file.link || ''
+  ).trim();
+
+  const driveFileMatch = raw.match(/drive\.google\.com\/file\/d\/([^/?#]+)/i);
+  const driveIdMatch = raw.match(/[?&]id=([^&#]+)/i);
+  const driveId = String(
+    file.fileId || file.driveId ||
+    (driveFileMatch ? driveFileMatch[1] : '') ||
+    (driveIdMatch && /drive\.google\.com/i.test(raw) ? driveIdMatch[1] : '')
+  ).trim();
+
+  if (driveId && /drive\.google\.com/i.test(raw)) {
+    return 'https://drive.google.com/thumbnail?id=' +
+      encodeURIComponent(driveId) + '&sz=w2000';
+  }
+
+  return getFileUrl(file);
+}
+
 function renderActiveFiles() {
   const wrap = document.getElementById('jpFilesList');
   activeFiles = activeJob?.files || [];
@@ -1215,7 +1242,7 @@ function viewOrderFileByObj(file) {
       <div class="flex flex-col items-center max-w-[92vw]">
         <div class="relative flex items-center justify-center min-h-[160px] max-w-full">
           <img id="fileImagePreview"
-               src="${escapeHTML(fileUrl)}"
+               src="${escapeHTML(getImagePreviewUrl(file))}"
                alt="${escapeHTML(file.name || 'Image')}"
                class="max-w-full max-h-[70vh] rounded-xl shadow object-contain bg-white"
                referrerpolicy="no-referrer"
