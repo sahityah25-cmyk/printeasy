@@ -76,24 +76,27 @@
     </div>
   </header>
 
-  <div class="glass rounded-3xl p-5 mb-6">
-    <div class="flex items-center justify-between mb-3">
-      <h2 class="font-semibold flex items-center gap-2 text-slate-800">
-        <i data-lucide="hard-drive" class="w-4 h-4 text-pink-500"></i> Detected Printers
-      </h2>
-      <div class="flex items-center gap-2">
-        <span id="printerCount" class="text-xs text-slate-500">0 found</span>
-        <span id="syncStatus" class="ml-2 text-[10px] text-emerald-600">Live</span>
-        <button onclick="refreshPrinters()" class="text-xs text-purple-600 hover:text-pink-500 font-medium flex items-center gap-1">
-          <i data-lucide="refresh-cw" class="w-3 h-3"></i> Re-detect
+  <!-- Compact detected-printer bar -->
+  <div class="glass rounded-2xl px-3 py-2.5 mb-4">
+    <div class="flex items-center justify-between gap-3 min-w-0">
+      <div class="flex items-center gap-2 min-w-0 flex-shrink-0">
+        <i data-lucide="printer" class="w-4 h-4 text-pink-500"></i>
+        <span class="text-sm font-semibold text-slate-800 whitespace-nowrap">Printers</span>
+        <span id="printerCount" class="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 whitespace-nowrap">0 found</span>
+        <span id="syncStatus" class="text-[10px] text-emerald-600 flex items-center gap-1 whitespace-nowrap">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Live
+        </span>
+      </div>
+      <div class="flex items-center gap-2 min-w-0 flex-1 justify-end">
+        <div id="printerList" class="flex items-center gap-1.5 overflow-x-auto max-w-full scroll py-0.5"></div>
+        <button onclick="refreshPrinters()" title="Re-detect printers" class="p-1.5 rounded-lg bg-purple-50 hover:bg-pink-100 text-purple-600 transition flex-shrink-0">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+        </button>
+        <button onclick="openSetup()" title="Printer setup" class="p-1.5 rounded-lg bg-purple-50 hover:bg-pink-100 text-purple-600 transition flex-shrink-0">
+          <i data-lucide="settings" class="w-3.5 h-3.5"></i>
         </button>
       </div>
     </div>
-    <div id="printerList" class="flex flex-wrap gap-2"></div>
-    <p class="text-[11px] text-slate-400 mt-3 flex items-center gap-1">
-      <i data-lucide="info" class="w-3 h-3"></i>
-      Printers detected automatically. To add one, use Setup (⚙️).
-    </p>
   </div>
 
   <div class="glass rounded-3xl p-4 mb-6">
@@ -661,14 +664,12 @@ function renderPrinterList() {
     lucide.createIcons(); return;
   }
   wrap.innerHTML = detectedPrinters.map(p => {
-    const badges = [];
-    if (p.capabilities?.color) badges.push('🎨 Colour');
-    if (p.capabilities?.duplex) badges.push('⇄ Duplex');
-    if (p.isDefault) badges.push('★ Default');
-    return `<div class="flex items-center gap-2 px-3 py-1.5 rounded-full ${p.isDefault ? 'bg-gradient-to-r from-purple-100 to-pink-100 border-pink-300' : 'bg-purple-50 border-purple-200'} border text-xs">
+    return `<div class="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg ${p.isDefault ? 'bg-gradient-to-r from-purple-100 to-pink-100 border-pink-300' : 'bg-purple-50 border-purple-200'} border text-[10px] whitespace-nowrap">
       <span class="w-1.5 h-1.5 rounded-full ${p.isOnline ? 'bg-green-500' : 'bg-red-500'}"></span>
-      <span class="font-medium text-slate-800">${escapeHTML(p.name)}</span>
-      ${badges.length ? `<span class="text-[10px] text-slate-500">${badges.join(' · ')}</span>` : ''}
+      <span class="font-medium text-slate-800 max-w-[140px] truncate" title="${escapeAttr(p.name)}">${escapeHTML(p.name)}</span>
+      ${p.isDefault ? '<span class="text-amber-600">★</span>' : ''}
+      ${p.capabilities?.color ? '<span class="text-slate-400">C</span>' : ''}
+      ${p.capabilities?.duplex ? '<span class="text-slate-400">D</span>' : ''}
     </div>`;
   }).join('');
   lucide.createIcons();
