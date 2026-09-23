@@ -12,38 +12,17 @@
     body {
       font-family: 'Inter', sans-serif;
       background: linear-gradient(135deg, #faf5ff 0%, #ffffff 40%, #fdf2f8 100%);
-      min-height: 100vh;
-      margin: 0;
-      padding: 0;
+      min-height: 100vh; margin: 0; padding: 0;
     }
-    .glass {
-      background: rgba(255, 255, 255, 0.75);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border: 1px solid rgba(216, 180, 254, 0.45);
-    }
-    .grad-text {
-      background: linear-gradient(90deg, #9333ea, #ec4899);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-    .grad-btn {
-      background: linear-gradient(90deg, #9333ea, #ec4899);
-      transition: all 0.25s ease;
-    }
-    .grad-btn:hover:not(:disabled) {
-      transform: translateY(-1px);
-      box-shadow: 0 12px 30px -8px rgba(236, 72, 153, 0.5);
-    }
+    .glass { background: rgba(255,255,255,0.75); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid rgba(216,180,254,0.45); }
+    .grad-text { background: linear-gradient(90deg,#9333ea,#ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .grad-btn { background: linear-gradient(90deg,#9333ea,#ec4899); transition: all 0.25s ease; }
+    .grad-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 12px 30px -8px rgba(236,72,153,0.5); }
     .grad-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .shadow-soft { box-shadow: 0 10px 40px -10px rgba(168, 85, 247, 0.25); }
-    .shadow-glow { box-shadow: 0 0 40px rgba(236, 72, 153, 0.35); }
+    .shadow-soft { box-shadow: 0 10px 40px -10px rgba(168,85,247,0.25); }
+    .shadow-glow { box-shadow: 0 0 40px rgba(236,72,153,0.35); }
     .fade-up { animation: fadeUp 0.45s ease-out; }
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     .toggle { transition: all 0.2s ease; }
     .toggle .knob { transition: all 0.2s ease; }
     .file-item { animation: fadeUp 0.3s ease-out; }
@@ -51,6 +30,7 @@
     button, .dropzone, .file-item button { touch-action: manipulation; }
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-thumb { background: #d8b4fe; border-radius: 8px; }
+    .send-state { transition: all .2s; }
   </style>
 </head>
 <body class="flex justify-center px-4 py-6 sm:py-8">
@@ -103,7 +83,7 @@
     <!-- UPLOAD -->
     <section id="screen-upload" class="hidden fade-up">
       <h1 class="text-2xl sm:text-3xl font-bold mb-1">Your <span class="grad-text">Files</span></h1>
-      <p class="text-slate-500 mb-5 text-xs sm:text-sm">Add up to 10 PDF, JPG, PNG (max 10 MB each)</p>
+      <p class="text-slate-500 mb-5 text-xs sm:text-sm">Add up to 10 PDF, JPG, PNG (max 10 MB each, 25 MB total)</p>
       <div id="dropzone" class="glass rounded-3xl p-5 sm:p-6 text-center transition-all cursor-pointer hover:shadow-soft active:scale-[0.99]">
         <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png" multiple class="hidden" />
         <div class="w-14 h-14 mx-auto rounded-2xl grad-btn flex items-center justify-center mb-3">
@@ -165,11 +145,12 @@
     <!-- SUCCESS -->
     <section id="screen-success" class="hidden fade-up text-center">
       <div class="glass rounded-3xl p-6 sm:p-7">
-        <div class="w-16 h-16 mx-auto rounded-full grad-btn flex items-center justify-center mb-4 shadow-glow">
-          <i data-lucide="check-circle-2" class="w-8 h-8 text-white"></i>
+        <div id="successIconWrap" class="w-16 h-16 mx-auto rounded-full grad-btn flex items-center justify-center mb-4 shadow-glow">
+          <i id="successIcon" data-lucide="loader-2" class="w-8 h-8 text-white animate-spin"></i>
         </div>
-        <h1 class="text-2xl font-bold mb-1">Sent to Shop</h1>
-        <p class="text-slate-500 text-sm mb-6">Show this code at the counter</p>
+        <h1 id="successTitle" class="text-2xl font-bold mb-1">Sending…</h1>
+        <p id="successSubtitle" class="text-slate-500 text-sm mb-6">Uploading to shop — hang tight</p>
+
         <div class="bg-white/70 rounded-2xl p-5 mb-5 border border-purple-200">
           <p class="text-xs text-slate-500 mb-2">Your code</p>
           <div class="flex items-center justify-center gap-3">
@@ -179,12 +160,17 @@
             </button>
           </div>
         </div>
+
         <div id="statusBadge" class="status-badge inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-amber-100 text-amber-700">
           <i data-lucide="clock" class="w-4 h-4"></i>
-          <span>Waiting for shop</span>
+          <span>Preparing…</span>
         </div>
+
         <p id="queuePosition" class="text-xs text-slate-500 mt-3"></p>
         <p id="waitEstimate" class="text-xs text-purple-600 font-medium mt-1"></p>
+
+        <div id="sendStateBanner" class="send-state hidden mt-4 text-xs rounded-xl px-3 py-2"></div>
+
         <div id="cancelWrap" class="mt-5 hidden">
           <button onclick="cancelMyOrder()" class="text-xs text-slate-400 hover:text-red-500 underline py-2 px-3">Cancel this order</button>
         </div>
@@ -206,6 +192,9 @@
     const MAX_RETRY       = 5;
     const MAX_FILES       = 10;
     const MAX_FILE_SIZE   = 10 * 1024 * 1024;
+    const MAX_TOTAL_SIZE  = 25 * 1024 * 1024;   // matches backend
+    const POLL_MS         = 3000;
+    const POLL_MS_HIDDEN  = 10000;
 
     let files = [];
     let opts = { color: false, duplex: false };
@@ -213,20 +202,17 @@
     let myOrderCode = null;
     let statusWatcher = null;
     let syncingStatus = false;
+    let sendConfirmed = false;   // true only after uploadOrder() succeeds
 
     function escapeHTML(s) {
       return String(s ?? '').replace(/[&<>"']/g, c => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
       }[c]));
     }
     function escapeAttr(s) { return escapeHTML(s); }
 
-    function readDB() {
-      try { return JSON.parse(localStorage.getItem(DB_KEY) || '{}'); } catch { return {}; }
-    }
-    function writeDB(db) {
-      try { localStorage.setItem(DB_KEY, JSON.stringify(db)); return true; } catch (e) { return false; }
-    }
+    function readDB() { try { return JSON.parse(localStorage.getItem(DB_KEY) || '{}'); } catch { return {}; } }
+    function writeDB(db) { try { localStorage.setItem(DB_KEY, JSON.stringify(db)); return true; } catch { return false; } }
     function cacheOrder(o) {
       if (!o || !o.orderId) return;
       const db = readDB();
@@ -239,9 +225,7 @@
       writeDB(db);
     }
 
-    function getPendingUploads() {
-      try { return JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); } catch { return []; }
-    }
+    function getPendingUploads() { try { return JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); } catch { return []; } }
     function savePendingUpload(p) {
       const a = getPendingUploads().filter(x => x.orderId !== p.orderId);
       a.push({ ...p, _attempts: 0 });
@@ -269,7 +253,9 @@
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload)
       });
-      const t = await r.text(); let j = {}; try { j = JSON.parse(t); } catch {}
+      const t = await r.text();
+      let j = {};
+      try { j = JSON.parse(t); } catch {}
       if (!r.ok) throw new Error('HTTP ' + r.status);
       if (j.success === false) throw new Error(j.error || 'Request failed');
       return j;
@@ -282,11 +268,17 @@
         if ((payload._attempts || 0) >= MAX_RETRY) {
           removePendingUpload(payload.orderId);
           console.warn('Dropped after max retries:', payload.orderId);
+          if (payload.orderId === myOrderId) markSendFailed('Could not reach shop after several tries. Please try again.');
           continue;
         }
         try {
-          await uploadOrder(payload);
+          const r = await uploadOrder(payload);
           removePendingUpload(payload.orderId);
+          if (payload.orderId === myOrderId) {
+            sendConfirmed = true;
+            renderSendState();
+            if (r && r.order) cacheOrder(normalizeServerOrder(r.order));
+          }
         } catch (e) {
           bumpAttempt(payload.orderId);
           console.warn('Retry failed', payload.orderId, e.message);
@@ -302,8 +294,8 @@
 
     function statusClass(s) {
       return ({
-        waiting: 'text-amber-600', printing: 'text-blue-600', printed: 'text-green-600',
-        collected: 'text-emerald-600', failed: 'text-red-500'
+        waiting:'text-amber-600', printing:'text-blue-600', printed:'text-green-600',
+        collected:'text-emerald-600', failed:'text-red-500'
       }[s] || 'text-slate-500');
     }
 
@@ -333,8 +325,9 @@
     function reopenOrder(id) {
       const o = readDB()[id]; if (!o) return;
       myOrderId = id; myOrderCode = o.displayCode;
+      sendConfirmed = true;   // history orders were already uploaded successfully
       document.getElementById('dispCode').textContent = o.displayCode || '----';
-      document.getElementById('cancelWrap').classList.add('hidden');
+      renderSendState();
       go('success');
       startWatchingMyOrder(id);
     }
@@ -356,6 +349,8 @@
     dz.ondrop = e => { e.preventDefault(); dz.classList.remove('shadow-glow'); handleFiles([...e.dataTransfer.files]); };
     function addMoreFiles() { fi.click(); }
 
+    function totalBytes() { return files.reduce((s, f) => s + f.size, 0); }
+
     function handleFiles(newFiles) {
       const slots = MAX_FILES - files.length;
       if (slots <= 0) { toast('Max ' + MAX_FILES + ' files per order'); return; }
@@ -365,6 +360,9 @@
         }
         if (f.size > MAX_FILE_SIZE) {
           toast(`Skipped ${f.name} — too large (max 10MB)`); return;
+        }
+        if (totalBytes() + f.size > MAX_TOTAL_SIZE) {
+          toast(`Skipped ${f.name} — total would exceed 25MB`); return;
         }
         const r = new FileReader();
         r.onload = e => {
@@ -392,7 +390,7 @@
         return;
       }
       list.classList.remove('hidden'); summary.classList.remove('hidden');
-      const total = files.reduce((s, f) => s + f.size, 0);
+      const total = totalBytes();
       document.getElementById('fileCount').textContent = files.length;
       document.getElementById('totalSize').textContent = (total / 1048576).toFixed(2) + ' MB';
       document.getElementById('continueBtn').disabled = false;
@@ -441,13 +439,19 @@
 
     async function submitOrder() {
       if (!files.length) return;
+
+      // Client-side total cap (matches backend)
+      if (totalBytes() > MAX_TOTAL_SIZE) {
+        toast('Total files exceed 25MB. Remove some files first.');
+        return;
+      }
+
       const btn = document.getElementById('sendBtn');
       btn.disabled = true;
       btn.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Sending…';
       lucide.createIcons();
 
       const orderId = 'ORD-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
-      // 4-digit code: 1000–9999
       const code = String(Math.floor(1000 + Math.random() * 9000));
       const payload = {
         orderId, code,
@@ -463,26 +467,62 @@
 
       cacheOrder(local); saveMyHistory(local); savePendingUpload(payload);
       myOrderId = orderId; myOrderCode = code;
+      sendConfirmed = false;
       document.getElementById('dispCode').textContent = code;
-      document.getElementById('cancelWrap').classList.remove('hidden');
+      renderSendState();
       go('success');
       startWatchingMyOrder(orderId);
 
       try {
         const result = await uploadOrder(payload);
-        if (result && result.order) {
-          cacheOrder(normalizeServerOrder(result.order));
-          removePendingUpload(orderId);
-        } else if (result && result.success) {
-          removePendingUpload(orderId);
-        }
+        sendConfirmed = true;
+        if (result && result.order) cacheOrder(normalizeServerOrder(result.order));
+        removePendingUpload(orderId);
+        renderSendState();
       } catch (e) {
-        toast('⚠️ Upload is queued — will retry');
+        // Stay in "sending…" state. Retry loop will pick it up.
         console.warn('Submit failed:', e.message);
+        renderSendState();
       }
 
       btn.disabled = false;
       btn.innerHTML = '<i data-lucide="send" class="w-5 h-5"></i> Send to Shop';
+      lucide.createIcons();
+    }
+
+    function markSendFailed(msg) {
+      sendConfirmed = false;
+      const banner = document.getElementById('sendStateBanner');
+      if (!banner) return;
+      banner.classList.remove('hidden');
+      banner.className = 'send-state mt-4 text-xs rounded-xl px-3 py-2 bg-red-50 border border-red-200 text-red-700';
+      banner.textContent = '⚠️ ' + msg;
+    }
+
+    function renderSendState() {
+      const icon = document.getElementById('successIcon');
+      const title = document.getElementById('successTitle');
+      const subtitle = document.getElementById('successSubtitle');
+      const banner = document.getElementById('sendStateBanner');
+      if (!icon || !title) return;
+
+      if (sendConfirmed) {
+        icon.setAttribute('data-lucide', 'check-circle-2');
+        icon.classList.remove('animate-spin');
+        title.textContent = 'Sent to Shop';
+        subtitle.textContent = 'Show this code at the counter';
+        if (banner) { banner.classList.add('hidden'); banner.textContent = ''; }
+      } else {
+        icon.setAttribute('data-lucide', 'loader-2');
+        icon.classList.add('animate-spin');
+        title.textContent = 'Sending…';
+        subtitle.textContent = 'Uploading to shop — hang tight';
+        if (banner) {
+          banner.classList.remove('hidden');
+          banner.className = 'send-state mt-4 text-xs rounded-xl px-3 py-2 bg-amber-50 border border-amber-200 text-amber-700';
+          banner.textContent = '⏳ Not yet received by the shop. We will retry automatically.';
+        }
+      }
       lucide.createIcons();
     }
 
@@ -530,12 +570,17 @@
       return null;
     }
 
+    function currentPollMs() {
+      return document.hidden ? POLL_MS_HIDDEN : POLL_MS;
+    }
+
     function startWatchingMyOrder(orderId) {
       if (statusWatcher) clearInterval(statusWatcher);
       const tick = async () => {
         if (syncingStatus) return;
         syncingStatus = true;
         await refreshMyOrder();
+        await retryPendingUploads();
         syncingStatus = false;
         const db = readDB(), o = db[orderId];
         if (!o) return;
@@ -543,14 +588,33 @@
         renderQueuePosition(orderId);
         renderWaitEstimate(orderId);
         const cw = document.getElementById('cancelWrap');
-        if (cw) cw.classList.toggle('hidden', o.printStatus !== 'waiting');
+        if (cw) cw.classList.toggle('hidden', o.printStatus !== 'waiting' || !sendConfirmed);
         if (['collected', 'failed'].includes(o.printStatus)) {
           if (statusWatcher) { clearInterval(statusWatcher); statusWatcher = null; }
         }
       };
       tick();
-      statusWatcher = setInterval(tick, 3000);
+      // Use a self-rescheduling timeout so hidden-tab backoff applies.
+      const schedule = () => {
+        statusWatcher = setTimeout(async () => {
+          await tick();
+          if (statusWatcher) schedule();
+        }, currentPollMs());
+      };
+      schedule();
     }
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && statusWatcher) {
+        // Immediate refresh on return
+        refreshMyOrder().then(() => {
+          if (myOrderId) {
+            const o = readDB()[myOrderId];
+            if (o) { renderStatus(o.printStatus); renderQueuePosition(myOrderId); renderWaitEstimate(myOrderId); }
+          }
+        });
+      }
+    });
 
     function renderQueuePosition(orderId) {
       const db = readDB(), mine = db[orderId], el = document.getElementById('queuePosition');
@@ -604,8 +668,9 @@
     }
 
     function startFreshOrder() {
-      if (statusWatcher) clearInterval(statusWatcher);
-      statusWatcher = null; myOrderId = null; myOrderCode = null;
+      if (statusWatcher) { clearTimeout(statusWatcher); statusWatcher = null; }
+      myOrderId = null; myOrderCode = null;
+      sendConfirmed = false;
       files = []; opts = { color: false, duplex: false };
       ['togColor', 'togDuplex'].forEach(id => {
         const b = document.getElementById(id);
@@ -613,8 +678,17 @@
         b.querySelector('.knob').style.left = '0.25rem';
       });
       renderFiles();
+      renderSendState();
       go('home');
     }
+
+    // beforeunload guard while files are staged
+    window.addEventListener('beforeunload', (e) => {
+      if (files.length > 0 && !myOrderId) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
 
     renderRecentOrders();
     retryPendingUploads();
