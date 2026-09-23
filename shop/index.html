@@ -76,7 +76,6 @@
     </div>
   </header>
 
-  <!-- Compact detected-printer bar -->
   <div class="glass rounded-2xl px-3 py-2.5 mb-4">
     <div class="flex items-center justify-between gap-3 min-w-0">
       <div class="flex items-center gap-2 min-w-0 flex-shrink-0">
@@ -292,13 +291,11 @@
     <div class="p-5 space-y-4 overflow-y-auto scroll max-h-[70vh]">
       <div class="p-4 rounded-2xl bg-purple-50 border border-purple-100">
         <p class="text-sm font-medium text-slate-800 mb-2 flex items-center gap-2">
-          <i data-lucide="wand-2" class="w-4 h-4 text-purple-600"></i> Auto-Detect
+          <i data-lucide="info" class="w-4 h-4 text-purple-600"></i> Browser detection
         </p>
-        <p class="text-xs text-slate-500 mb-3">Try to read printers from your browser.</p>
-        <button onclick="autoDetectPrinters()" class="grad-btn text-white font-medium text-sm px-4 py-2 rounded-xl flex items-center gap-2">
-          <i data-lucide="search" class="w-4 h-4"></i> Detect Now
-        </button>
-        <p id="detectStatus" class="text-xs text-slate-500 mt-2"></p>
+        <p class="text-xs text-slate-500 mb-2">
+          Browsers do not expose installed printers to web pages. Add your printers manually below — they will be saved in this browser.
+        </p>
       </div>
       <div class="p-4 rounded-2xl bg-purple-50 border border-purple-100">
         <p class="text-sm font-medium text-slate-800 mb-3 flex items-center gap-2">
@@ -417,6 +414,11 @@ const SOUND_KEY    = 'xerox_sound';
 const AUTOSYNC_KEY = 'xerox_autosync';
 const CLEARED_KEY  = 'xerox_cleared_orders';
 
+const SYNC_MS         = 10000;   // bulk queue sync
+const SYNC_MS_HIDDEN  = 30000;
+const ACTIVE_MS       = 12000;   // active order refresh
+const ACTIVE_MS_HIDDEN= 30000;
+
 let detectedPrinters = [];
 let activeJob = null;
 let activeFiles = [];
@@ -428,8 +430,9 @@ let autoSyncEnabled = localStorage.getItem(AUTOSYNC_KEY) !== 'false';
 let lastWaitingCount = 0;
 let isSyncing = false;
 let syncFailCount = 0;
-let activeOrderPoller = null;
-let autoSyncInterval = null;
+let activeOrderTimer = null;
+let autoSyncTimer = null;
+let sendInFlight = false;
 
 function escapeHTML(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function escapeAttr(s){return escapeHTML(s)}
@@ -455,9 +458,6 @@ function readClearedOrders() {
 }
 function writeClearedOrders(v) {
   try { localStorage.setItem(CLEARED_KEY, JSON.stringify(v)); } catch {}
-}
-function isOrderCleared(id) {
-  return !!readClearedOrders()[id];
 }
 function markOrderCleared(id) {
   const c = readClearedOrders();
@@ -529,7 +529,7 @@ function displayStatusClass(status) {
   return 'bg-amber-100 text-amber-700 border-amber-300';
 }
 
-/* ── Sync + auto-prune failed/cancelled ── */
+/* ── Sync ── */
 async function syncOrdersFromDrive() {
   if (isSyncing) return; isSyncing = true;
   showLoader();
@@ -537,39 +537,40 @@ async function syncOrdersFromDrive() {
     const u = new URL(APPS_SCRIPT_URL);
     u.searchParams.set('action','ORDERS');
     u.searchParams.set('token',SHOP_TOKEN);
+    u.searchParams.set('include','all');
     const res = await fetch(u.toString(), {cache:'no-store'});
     if (!res.ok) throw new Error('HTTP '+res.status);
     const data = await res.json();
     if (!data.success || !Array.isArray(data.orders)) throw new Error(data.error||'Invalid orders response');
-    const db = readDB(); let changed = false, newCount = 0, pruned = 0;
 
+    const db = readDB(); let changed = false, newCount = 0;
     const cleared = readClearedOrders();
+
     data.orders.forEach(o => {
-      const n = normalizeServerOrder(o);
-      // Keep locally-cleared orders out of the queue until the server changes them.
+      const n = normalizeIndexedOrder(o);
+      // Drop cleared entries only until server bumps updatedAt.
       if (cleared[n.id] && (n.updatedAt || n.createdAt) <= cleared[n.id]) return;
-      if (cleared[n.id] && (n.updatedAt || n.createdAt) > cleared[n.id]) {
-        delete cleared[n.id];
-      }
-      // Auto-prune failed/cancelled from queue
-      if (n.printStatus === 'failed' && !activeJob) { return; }
+      if (cleared[n.id] && (n.updatedAt || n.createdAt) > cleared[n.id]) delete cleared[n.id];
+
       const existing = db[n.id];
-      if (!existing) { newCount++; changed = true; db[n.id] = n; }
-      else {
+      if (!existing) {
+        // Index-only records: files may be missing until ORDER fetch.
+        db[n.id] = { ...n, files: n.files || [] };
+        newCount++; changed = true;
+      } else {
         const merged = mergeOrder(n);
         if (JSON.stringify(existing) !== JSON.stringify(merged)) { changed = true; db[n.id] = merged; }
       }
     });
 
-    // Drop orders no longer on server OR failed/cancelled
+    // Remove local orders no longer on server (and older than 60s grace)
     const serverIds = new Set(data.orders.map(o => o.orderId));
     Object.keys(db).forEach(id => {
       const goneFromServer = !serverIds.has(id) && Date.now() - (db[id].createdAt||0) > 60000;
       const isFailed = db[id].printStatus === 'failed';
-      const isCollected = db[id].printStatus === 'collected' && Date.now() - (db[id].updatedAt||0) > 300000;
-      if (goneFromServer || isFailed || isCollected) {
-        if (activeJob && activeJob.id === id) return; // keep if user is working on it
-        delete db[id]; changed = true; pruned++;
+      if (goneFromServer || isFailed) {
+        if (activeJob && activeJob.id === id) return;
+        delete db[id]; changed = true;
       }
     });
 
@@ -579,31 +580,42 @@ async function syncOrdersFromDrive() {
     if (newCount && !activeJob) { playBeep(); toast('🆕 '+newCount+' new order(s)'); }
     if (activeJob && db[activeJob.id]) {
       const fresh = db[activeJob.id];
-      if (fresh.printStatus !== activeJob.printStatus || JSON.stringify(fresh.files) !== JSON.stringify(activeJob.files)) {
+      if (fresh.printStatus !== activeJob.printStatus) {
         activeJob = fresh;
-        if (!document.getElementById('activeOrder').classList.contains('hidden')) {
-          document.getElementById('jpStatus').textContent = displayStatus(activeJob.printStatus);
-          document.getElementById('jpStatusBadge').className = displayStatusClass(activeJob.printStatus);
-          renderActiveFiles();
-        }
+        document.getElementById('jpStatus').textContent = displayStatus(activeJob.printStatus);
+        document.getElementById('jpStatusBadge').className = displayStatusClass(activeJob.printStatus);
       }
     }
-    // Auto-deselect active order if it was removed
-    if (activeJob && !db[activeJob.id]) {
-      deselectOrder(true);
-    }
+    if (activeJob && !db[activeJob.id]) deselectOrder(true);
     syncFailCount = 0;
     const s = document.getElementById('syncStatus');
-    if (s) { s.textContent = 'Live'; s.className = 'ml-2 text-[10px] text-emerald-600'; }
+    if (s) { s.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Live'; s.className = 'text-[10px] text-emerald-600 flex items-center gap-1 whitespace-nowrap'; }
   } catch (e) {
     console.warn('Server sync failed:', e.message);
     syncFailCount++;
     const s = document.getElementById('syncStatus');
     if (s) {
-      s.textContent = syncFailCount > 3 ? 'Offline' : 'Retrying…';
-      s.className = 'ml-2 text-[10px] ' + (syncFailCount > 3 ? 'text-red-500' : 'text-amber-500');
+      s.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> ' + (syncFailCount > 3 ? 'Offline' : 'Retrying…');
+      s.className = 'text-[10px] ' + (syncFailCount > 3 ? 'text-red-500' : 'text-amber-500');
     }
   } finally { isSyncing = false; hideLoader(); }
+}
+
+/* The backend ORDERS response uses the index format (no files array). */
+function normalizeIndexedOrder(o){
+  return {
+    id:o.orderId, orderId:o.orderId,
+    displayCode:o.code, code:o.code,
+    files:[],
+    color:!!o.color, duplex:!!o.duplex, copies:o.copies||1,
+    printStatus:o.printStatus||'waiting',
+    createdAt:new Date(o.timestamp||Date.now()).getTime(),
+    updatedAt:o.updatedAt?new Date(o.updatedAt).getTime():Date.now(),
+    price:o.price||0, priceFinal:o.priceFinal??null,
+    paymentStatus:o.paymentStatus||'pending',
+    notes:o.notes||'', printer:o.printer||'', printerId:o.printerId||'',
+    reprintCount:o.reprintCount||0
+  };
 }
 
 function statusBadgeClass(s) {
@@ -644,7 +656,7 @@ async function updateServerOrder(orderId, changes){
   return j;
 }
 
-async function fetchFreshOrder(orderId) {
+async function fetchFreshOrder(orderId, attempt = 0) {
   const local = readDB()[orderId];
   const u = new URL(APPS_SCRIPT_URL);
   u.searchParams.set('action','ORDER');
@@ -691,6 +703,7 @@ function updateSoundIcon() {
 }
 function announceReady(code) {
   try {
+    speechSynthesis.cancel();
     const msg = new SpeechSynthesisUtterance(`Order ${code.split('').join(' ')}, ready for collection`);
     msg.rate = 0.9; msg.pitch = 1.0;
     speechSynthesis.speak(msg);
@@ -715,32 +728,23 @@ function toggleAutoSync() {
 function startAutoSync() {
   stopAutoSync();
   if (!autoSyncEnabled) return;
-  autoSyncInterval = setInterval(syncOrdersFromDrive, 5000);
+  const schedule = () => {
+    autoSyncTimer = setTimeout(async () => {
+      await syncOrdersFromDrive();
+      if (autoSyncTimer) schedule();
+    }, document.hidden ? SYNC_MS_HIDDEN : SYNC_MS);
+  };
+  schedule();
 }
 function stopAutoSync() {
-  if (autoSyncInterval) { clearInterval(autoSyncInterval); autoSyncInterval = null; }
+  if (autoSyncTimer) { clearTimeout(autoSyncTimer); autoSyncTimer = null; }
 }
 
-/* ── Printers ── */
+/* ── Printers (manual only — browsers do not expose OS printers) ── */
 async function refreshPrinters() {
   detectedPrinters = [];
-  try {
-    if (navigator.printers && navigator.printers.getPrinters) {
-      const list = await navigator.printers.getPrinters();
-      if (Array.isArray(list) && list.length) {
-        detectedPrinters = list.map(p => ({
-          id: p.name || p.id, name: p.name || p.id,
-          isDefault: !!p.isDefault, isOnline: true,
-          capabilities: { color: !!(p.capabilities?.color), duplex: !!(p.capabilities?.duplex) },
-          source: 'browser'
-        }));
-      }
-    }
-  } catch (e) {}
-  if (detectedPrinters.length === 0) {
-    const saved = JSON.parse(localStorage.getItem(PRINTERS_KEY) || '[]');
-    if (saved.length) detectedPrinters = saved.map(p => ({ ...p, source:'saved', isOnline:true }));
-  }
+  const saved = JSON.parse(localStorage.getItem(PRINTERS_KEY) || '[]');
+  if (saved.length) detectedPrinters = saved.map(p => ({ ...p, isOnline:true }));
   renderPrinterList(); renderSetupList(); updateManualDropdown(); updateRoutingHint();
 }
 function renderPrinterList() {
@@ -749,7 +753,7 @@ function renderPrinterList() {
   if (detectedPrinters.length === 0) {
     wrap.innerHTML = `<div class="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-3 py-1.5">
       <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
-      No printers detected — <button onclick="openSetup()" class="underline font-medium">add one</button>
+      No printers yet — <button onclick="openSetup()" class="underline font-medium">add one</button>
     </div>`;
     lucide.createIcons(); return;
   }
@@ -763,28 +767,6 @@ function renderPrinterList() {
     </div>`;
   }).join('');
   lucide.createIcons();
-}
-async function autoDetectPrinters() {
-  const status = document.getElementById('detectStatus');
-  status.textContent = 'Detecting…';
-  detectedPrinters = [];
-  try {
-    if (navigator.printers && navigator.printers.getPrinters) {
-      const list = await navigator.printers.getPrinters();
-      if (Array.isArray(list) && list.length) {
-        detectedPrinters = list.map(p => ({
-          id: p.name || p.id, name: p.name || p.id,
-          isDefault: !!p.isDefault, isOnline: true,
-          capabilities: { color: !!(p.capabilities?.color), duplex: !!(p.capabilities?.duplex) }
-        }));
-        savePrinters();
-        status.textContent = `✅ Found ${detectedPrinters.length} printer(s).`;
-        renderPrinterList(); renderSetupList(); updateManualDropdown(); updateRoutingHint();
-        return;
-      }
-    }
-    status.textContent = '⚠️ Browser API not available. Add printers manually below.';
-  } catch (e) { status.textContent = '⚠️ Detection failed: ' + e.message; }
 }
 function savePrinters() { localStorage.setItem(PRINTERS_KEY, JSON.stringify(detectedPrinters)); }
 function addManualPrinter() {
@@ -903,7 +885,7 @@ function updateRoutingHint() {
   if (!best) {
     wrap.className = 'p-4 rounded-xl bg-red-50 border border-red-200 flex items-center gap-3 mb-4';
     wrap.querySelector('i').setAttribute('data-lucide', 'alert-circle');
-    el.textContent = '⚠️ No suitable printer online — add one in Setup';
+    el.textContent = '⚠️ No suitable printer — add one in Setup';
     el.className = 'text-xs text-red-700';
   } else {
     wrap.className = 'p-4 rounded-xl bg-green-50 border border-green-200 flex items-center gap-3 mb-4';
@@ -920,29 +902,22 @@ function toggleManualOverride() {
   updateRoutingHint();
 }
 
-/* ── Click order → auto-load into workspace ── */
+/* ── Open order into console ── */
 async function selectOrder(id, opts = {}) {
   id = String(id || '').trim();
   if (!id) return toast('Enter an Order ID');
 
   showLoader();
-  setOrderSearchStatus('Fetching order from backend…', 'text-purple-600');
+  setOrderSearchStatus('Fetching order…', 'text-purple-600');
   let fresh = null;
   let lastError = null;
 
-  // The backend/Drive can take a few seconds to expose a newly-created order.
-  // Retry before falling back to the local cache.
   const delays = [0, 800, 1600, 3000];
-
   try {
     for (let attempt = 0; attempt < delays.length; attempt++) {
       if (delays[attempt]) await new Promise(r => setTimeout(r, delays[attempt]));
-      try {
-        fresh = await fetchFreshOrder(id);
-        if (fresh) break;
-      } catch (e) {
-        lastError = e;
-      }
+      try { fresh = await fetchFreshOrder(id); if (fresh) break; }
+      catch (e) { lastError = e; }
     }
 
     const db = readDB();
@@ -956,18 +931,13 @@ async function selectOrder(id, opts = {}) {
       const local = db[id] || Object.values(db).find(o =>
         String(o.displayCode || '').toLowerCase() === id.toLowerCase()
       );
-
       if (!local) {
-        setOrderSearchStatus(
-          `Order not available yet. ${lastError?.message || 'Try Fetch Order again in a few seconds.'}`,
-          'text-red-600'
-        );
-        toast('❌ Order not found yet — try Fetch Order again');
+        setOrderSearchStatus(`Order not available yet. ${lastError?.message || 'Try again in a few seconds.'}`, 'text-red-600');
+        toast('❌ Order not found yet');
         return;
       }
-
       activeJob = local;
-      setOrderSearchStatus('Backend is still catching up — showing cached order.', 'text-amber-600');
+      setOrderSearchStatus('Showing cached order — backend still catching up.', 'text-amber-600');
     }
   } finally {
     hideLoader();
@@ -981,7 +951,6 @@ async function selectOrder(id, opts = {}) {
     notes: activeJob.notes || ''
   };
 
-  // Load into the existing Order Console only. No separate order-details page/modal.
   document.getElementById('noActiveOrder').classList.add('hidden');
   document.getElementById('activeOrder').classList.remove('hidden');
   document.getElementById('activeOrder').classList.add('fade-up');
@@ -1030,27 +999,22 @@ function clearOrderSearch() {
 async function fetchOrderFromSearch() {
   const input = document.getElementById('orderSearchInput');
   const value = String(input?.value || '').trim();
-
   if (!value) {
     setOrderSearchStatus('Enter an Order ID or Order Code first.', 'text-amber-600');
     input?.focus();
     return;
   }
-
   const btn = document.getElementById('orderFetchBtn');
   if (btn) {
     btn.disabled = true;
     btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 spinner"></i><span>Fetching…</span>';
     lucide.createIcons();
   }
-
   try {
     const db = readDB();
     const local = db[value] || Object.values(db).find(o =>
       String(o.displayCode || '').toLowerCase() === value.toLowerCase()
     );
-
-    // selectOrder always verifies against the backend and retries if it is delayed.
     await selectOrder(local?.id || value, { keepSearchValue: true });
   } finally {
     if (btn) {
@@ -1073,119 +1037,79 @@ function deselectOrder(silent) {
 
 function startActiveOrderPoller() {
   stopActiveOrderPoller();
-  activeOrderPoller = setInterval(async () => {
-    if (!activeJob) return;
-    try {
-      const fresh = await fetchFreshOrder(activeJob.id);
-      const db = readDB();
-      // If gone from server, deselect
-      if (!db[fresh.id]) { deselectOrder(true); return; }
-      db[fresh.id] = mergeOrder(fresh);
-      writeDB(db);
-      activeJob = db[fresh.id];
-      document.getElementById('jpStatus').textContent = displayStatus(activeJob.printStatus);
-      document.getElementById('jpStatusBadge').className = displayStatusClass(activeJob.printStatus);
-      if (fresh.files?.length && JSON.stringify(fresh.files) !== JSON.stringify(activeFiles)) {
-        renderActiveFiles();
-      }
-    } catch (e) { /* silent */ }
-  }, 8000);
+  const schedule = () => {
+    activeOrderTimer = setTimeout(async () => {
+      if (!activeJob) { schedule(); return; }
+      try {
+        const fresh = await fetchFreshOrder(activeJob.id);
+        const db = readDB();
+        db[fresh.id] = mergeOrder(fresh);
+        writeDB(db);
+        activeJob = db[fresh.id];
+        document.getElementById('jpStatus').textContent = displayStatus(activeJob.printStatus);
+        document.getElementById('jpStatusBadge').className = displayStatusClass(activeJob.printStatus);
+        if (fresh.files?.length && JSON.stringify(fresh.files) !== JSON.stringify(activeFiles)) {
+          renderActiveFiles();
+        }
+      } catch (e) { /* silent */ }
+      if (activeOrderTimer) schedule();
+    }, document.hidden ? ACTIVE_MS_HIDDEN : ACTIVE_MS);
+  };
+  schedule();
 }
 function stopActiveOrderPoller() {
-  if (activeOrderPoller) { clearInterval(activeOrderPoller); activeOrderPoller = null; }
+  if (activeOrderTimer) { clearTimeout(activeOrderTimer); activeOrderTimer = null; }
 }
 
-/* ── File preview helpers ──
-   Handles normal URLs plus common Google Drive file links and image
-   extensions when the backend does not provide a MIME type.
-*/
+/* ── File URL helpers (unchanged, but no HTML-escaping in href) ── */
 function getFileUrl(file) {
   if (!file) return '';
-
-  // Support the common field names returned by different backends.
-  let raw = String(
-    file.url || file.downloadUrl || file.webContentLink ||
-    file.webViewLink || file.href || file.link || ''
-  ).trim();
-
+  let raw = String(file.url || file.downloadUrl || file.webContentLink ||
+    file.webViewLink || file.href || file.link || '').trim();
   if (!raw) return '';
-
-  // Google Drive: convert /file/d/ID/view and ?id=ID links to a
-  // browser-renderable download URL. This also works in <img>.
   const driveFileMatch = raw.match(/drive\.google\.com\/file\/d\/([^/?#]+)/i);
   const driveIdMatch = raw.match(/[?&]id=([^&#]+)/i);
-  const driveId = String(
-    file.fileId || file.driveId || file.id || 
+  const driveId = String(file.fileId || file.driveId || file.id ||
     (driveFileMatch ? driveFileMatch[1] : '') ||
-    (driveIdMatch && /drive\.google\.com/i.test(raw) ? driveIdMatch[1] : '')
-  ).trim();
-
+    (driveIdMatch && /drive\.google\.com/i.test(raw) ? driveIdMatch[1] : '')).trim();
   if (driveId && /drive\.google\.com/i.test(raw)) {
     return 'https://drive.google.com/uc?export=download&id=' + encodeURIComponent(driveId);
   }
-
   return raw;
 }
-
 function isImageFile(file) {
   const type = String(file?.type || '').toLowerCase().split(';')[0].trim();
   const name = String(file?.name || '').toLowerCase().split('?')[0];
   return type.startsWith('image/') ||
     /\.(png|jpe?g|webp|gif|bmp|svg|avif|heic|heif)$/i.test(name);
 }
-
-// URL specifically for INLINE image preview.
-// Google Drive's download endpoint can force a download in some browsers,
-// so use Drive's thumbnail endpoint for the <img> preview instead.
 function getImagePreviewUrl(file) {
   if (!file) return '';
-
-  const raw = String(
-    file.url || file.downloadUrl || file.webContentLink ||
-    file.webViewLink || file.href || file.link || ''
-  ).trim();
-
+  const raw = String(file.url || file.downloadUrl || file.webContentLink ||
+    file.webViewLink || file.href || file.link || '').trim();
   const driveFileMatch = raw.match(/drive\.google\.com\/file\/d\/([^/?#]+)/i);
   const driveIdMatch = raw.match(/[?&]id=([^&#]+)/i);
-  const driveId = String(
-    file.fileId || file.driveId ||
+  const driveId = String(file.fileId || file.driveId ||
     (driveFileMatch ? driveFileMatch[1] : '') ||
-    (driveIdMatch && /drive\.google\.com/i.test(raw) ? driveIdMatch[1] : '')
-  ).trim();
-
+    (driveIdMatch && /drive\.google\.com/i.test(raw) ? driveIdMatch[1] : '')).trim();
   if (driveId && /drive\.google\.com/i.test(raw)) {
-    return 'https://drive.google.com/thumbnail?id=' +
-      encodeURIComponent(driveId) + '&sz=w2000';
+    return 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(driveId) + '&sz=w2000';
   }
-
   return getFileUrl(file);
 }
-
-// URL specifically for the viewer. Never use a Drive download endpoint here,
-// because it can make Chrome download the file instead of rendering it.
-// For Drive files, /preview asks Drive's viewer to render PDFs and supported
-// document types inside the iframe.
 function getViewerUrl(file) {
   if (!file) return '';
-
-  const raw = String(
-    file.url || file.downloadUrl || file.webContentLink ||
-    file.webViewLink || file.href || file.link || ''
-  ).trim();
+  const raw = String(file.url || file.downloadUrl || file.webContentLink ||
+    file.webViewLink || file.href || file.link || '').trim();
   if (!raw) return '';
-
   const driveFileMatch = raw.match(/drive\.google\.com\/file\/d\/([^/?#]+)/i);
   const driveIdMatch = raw.match(/[?&]id=([^&#]+)/i);
-  const driveId = String(
-    file.fileId || file.driveId ||
+  const driveId = String(file.fileId || file.driveId ||
     (driveFileMatch ? driveFileMatch[1] : '') ||
-    (driveIdMatch && /drive\.google\.com/i.test(raw) ? driveIdMatch[1] : '')
-  ).trim();
-
+    (driveIdMatch && /drive\.google\.com/i.test(raw) ? driveIdMatch[1] : '')).trim();
   if (driveId && /drive\.google\.com/i.test(raw)) {
     return 'https://drive.google.com/file/d/' + encodeURIComponent(driveId) + '/preview';
   }
-
   return raw;
 }
 
@@ -1193,10 +1117,9 @@ function renderActiveFiles() {
   const wrap = document.getElementById('jpFilesList');
   activeFiles = activeJob?.files || [];
   if (!activeFiles.length) {
-    wrap.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">No files</p>';
+    wrap.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">No files (fetch this order to load them)</p>';
     return;
   }
-
   wrap.innerHTML = activeFiles.map((f, i) => {
     const isImg = isImageFile(f);
     const status = f.status || 'waiting';
@@ -1211,7 +1134,7 @@ function renderActiveFiles() {
       ? `<button onclick="event.stopPropagation();viewOrderFile(${i})" class="p-2 rounded-lg hover:bg-pink-100 text-pink-600 flex-shrink-0" title="View ${escapeHTML(f.name || 'file')}">
            <i data-lucide="eye" class="w-4 h-4"></i>
          </button>
-         <a href="${escapeHTML(fileUrl)}" target="_blank" rel="noopener" class="p-2 rounded-lg hover:bg-purple-100 text-purple-600 flex-shrink-0" title="Open file">
+         <a href="${fileUrl}" target="_blank" rel="noopener" class="p-2 rounded-lg hover:bg-purple-100 text-purple-600 flex-shrink-0" title="Open file">
            <i data-lucide="external-link" class="w-4 h-4"></i>
          </a>`
       : `<span class="text-[10px] text-slate-400 px-2 py-1 rounded bg-slate-100">no preview</span>`;
@@ -1228,7 +1151,6 @@ function renderActiveFiles() {
       <div class="flex items-center gap-1">${view}</div>
     </div>`;
   }).join('');
-
   lucide.createIcons();
 }
 
@@ -1257,21 +1179,19 @@ function viewOrderFileByObj(file) {
   applyZoom();
 
   if (isPdf) {
-    c.innerHTML = `<iframe src="${escapeHTML(viewerUrl)}"
+    c.innerHTML = `<iframe src="${viewerUrl}"
         class="w-[min(88vw,900px)] h-[70vh] rounded-xl bg-white border border-slate-200"
         title="PDF preview"></iframe>
       <div class="mt-3 text-center">
-        <a href="${escapeHTML(viewerUrl)}" target="_blank" rel="noopener"
+        <a href="${viewerUrl}" target="_blank" rel="noopener"
            class="text-sm text-purple-600 underline">Open PDF viewer</a>
       </div>`;
   } else if (isImg) {
-    // Use both the MIME type and filename extension. Some uploads arrive
-    // with type="" or application/octet-stream even though they are images.
     c.innerHTML = `
       <div class="flex flex-col items-center max-w-[92vw]">
         <div class="relative flex items-center justify-center min-h-[160px] max-w-full">
           <img id="fileImagePreview"
-               src="${escapeHTML(getImagePreviewUrl(file))}"
+               src="${getImagePreviewUrl(file)}"
                alt="${escapeHTML(file.name || 'Image')}"
                class="max-w-full max-h-[70vh] rounded-xl shadow object-contain bg-white"
                referrerpolicy="no-referrer"
@@ -1283,31 +1203,22 @@ function viewOrderFileByObj(file) {
           </div>
         </div>
         <div class="mt-3 flex items-center gap-3">
-          <a href="${escapeHTML(fileUrl)}" target="_blank" rel="noopener"
+          <a href="${fileUrl}" target="_blank" rel="noopener"
              class="text-sm text-purple-600 underline">Open image</a>
-          ${file.url && file.url !== fileUrl ? `<a href="${escapeHTML(file.url)}" target="_blank" rel="noopener"
-             class="text-sm text-slate-500 underline">Open original</a>` : ''}
         </div>
       </div>`;
   } else {
-    // Let the browser/Google Drive viewer render supported document types
-    // (DOC/DOCX/XLS/XLSX/PPT/PPTX and other previewable files) instead of
-    // navigating to a download endpoint.
-    c.innerHTML = `<iframe src="${escapeHTML(viewerUrl)}"
+    c.innerHTML = `<iframe src="${viewerUrl}"
         class="w-[min(88vw,900px)] h-[70vh] rounded-xl bg-white border border-slate-200"
-        title="File preview"
-        onerror="this.classList.add('hidden');this.nextElementSibling?.classList.remove('hidden');"></iframe>
-      <div class="hidden p-10 text-center bg-white rounded-2xl">
-        <i data-lucide="file" class="w-12 h-12 mx-auto text-purple-500"></i>
-        <p class="mt-3">This file cannot be previewed in the browser.</p>
-        <a class="inline-block mt-4 text-purple-600 underline" href="${escapeHTML(fileUrl)}" target="_blank" rel="noopener">Open original file</a>
+        title="File preview"></iframe>
+      <div class="mt-3 text-center">
+        <a class="inline-block text-purple-600 underline" href="${fileUrl}" target="_blank" rel="noopener">Open original file</a>
       </div>`;
   }
 
   document.getElementById('viewerModal').classList.remove('hidden');
   lucide.createIcons();
 }
-
 
 function onEdit() {
   editedValues.copies = Math.max(1, Math.min(200, parseInt(document.getElementById('editCopies').value) || 1));
@@ -1332,17 +1243,40 @@ function renderEditToggles() {
   });
 }
 
+/* ── printAllFiles (now defined!) ──
+   Opens each file's download URL in a new tab. The shopkeeper prints via
+   the browser's print dialog. Uses staggered timing so popup blockers
+   allow the tabs. */
+function printAllFiles() {
+  const urls = activeFiles.map(getFileUrl).filter(Boolean);
+  if (!urls.length) { toast('No printable files'); return; }
+  let i = 0;
+  const openNext = () => {
+    if (i >= urls.length) return;
+    try {
+      const w = window.open(urls[i], '_blank', 'noopener');
+      if (!w) toast('Allow pop-ups to print all files at once');
+    } catch (e) {}
+    i++;
+    if (i < urls.length) setTimeout(openNext, 250);
+  };
+  openNext();
+}
+
 async function sendToPrinter() {
-  if (!activeJob) return;
+  if (!activeJob || sendInFlight) return;
   const printer = autoRouting
     ? pickBestPrinter({...activeJob, ...editedValues})
     : detectedPrinters.find(p => p.id === document.getElementById('manualPrinter').value);
   if (!printer) return toast('❌ No suitable printer — check Setup');
   if (editedValues.color && !printer.capabilities?.color) return toast(`❌ ${printer.name} does not support colour`);
+
+  sendInFlight = true;
   const btn = document.getElementById('printBtn');
   btn.disabled = true;
   btn.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Starting…';
   lucide.createIcons();
+
   const changes = {
     status:'printing', copies:editedValues.copies,
     color:editedValues.color, duplex:editedValues.duplex,
@@ -1351,6 +1285,7 @@ async function sendToPrinter() {
     notes: editedValues.notes,
     printer: printer.name, printerId: printer.id
   };
+
   try {
     const r = await updateServerOrder(activeJob.id, changes);
     if (!r.success) throw new Error(r.error || 'Unable to start');
@@ -1359,6 +1294,7 @@ async function sendToPrinter() {
     document.getElementById('jpStatus').textContent = 'printing';
     document.getElementById('jpStatusBadge').className = statusBadgeClass('printing');
     renderActiveFiles(); renderQueue();
+
     const wrap = document.getElementById('printProgress');
     const bar = document.getElementById('progressBar');
     const pct = document.getElementById('progressPct');
@@ -1367,6 +1303,7 @@ async function sendToPrinter() {
     printAllFiles();
     bar.style.width = '100%'; pct.textContent = '100%';
     lbl.textContent = 'Files opened. Print them, then click Mark Printed.';
+
     btn.disabled = false;
     btn.innerHTML = '<i data-lucide="check-circle-2" class="w-5 h-5"></i> Mark Printed';
     btn.onclick = markPrinted;
@@ -1376,10 +1313,14 @@ async function sendToPrinter() {
     btn.disabled = false;
     btn.innerHTML = '<i data-lucide="printer" class="w-5 h-5"></i> Send to Printer';
     lucide.createIcons();
+  } finally {
+    sendInFlight = false;
   }
 }
+
 async function markPrinted() {
-  if (!activeJob) return;
+  if (!activeJob || sendInFlight) return;
+  sendInFlight = true;
   const btn = document.getElementById('printBtn');
   btn.disabled = true;
   try {
@@ -1399,17 +1340,22 @@ async function markPrinted() {
   } catch (e) {
     btn.disabled = false;
     toast('❌ ' + e.message);
-  }
+  } finally { sendInFlight = false; }
 }
+
 async function markCollected() {
-  if (!activeJob) return;
+  if (!activeJob || sendInFlight) return;
+  sendInFlight = true;
   try {
     await updateServerOrder(activeJob.id, {status:'collected', paymentStatus:'paid'});
+    try { speechSynthesis.cancel(); } catch(e){}
     toast('📦 Collected');
     await syncOrdersFromDrive();
     deselectOrder();
   } catch (e) { toast('❌ ' + e.message); }
+  finally { sendInFlight = false; }
 }
+
 async function cancelOrder() {
   if (!activeJob) return;
   const reason = prompt('Reason for cancellation?') || 'Cancelled by shop';
@@ -1420,6 +1366,7 @@ async function cancelOrder() {
     deselectOrder();
   } catch (e) { toast('❌ ' + e.message); }
 }
+
 async function reprintOrder(orderId) {
   const o = readDB()[orderId];
   if (!o) return;
@@ -1484,7 +1431,6 @@ function renderQueue() {
           </div>
         </button>
       </div>
-
       <button onclick="selectOrder('${escapeAttr(o.id)}')" class="w-full text-left">
         <p class="text-xs text-slate-700 pl-5">
           ${fileCount} file${fileCount > 1 ? 's' : ''} · ${o.copies || 1}c · ${o.color ? '🎨' : '⚫'}${o.duplex ? ' · ⇄' : ''}
@@ -1498,7 +1444,6 @@ function renderQueue() {
           </p>
         </div>
       </button>
-
       <div class="flex items-center justify-end gap-1 mt-2 pl-5">
         ${isDone ? `<button onclick="event.stopPropagation(); reprintOrder('${escapeAttr(o.id)}')" class="text-[10px] px-2 py-1 rounded-lg bg-purple-100 hover:bg-purple-200 text-purple-700 font-medium flex items-center gap-1">
           <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Reprint
@@ -1537,11 +1482,25 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    // Immediate refresh on tab return
+    syncOrdersFromDrive();
+    if (activeJob) {
+      fetchFreshOrder(activeJob.id).then(fresh => {
+        const db = readDB(); db[fresh.id] = mergeOrder(fresh); writeDB(db);
+        activeJob = db[fresh.id];
+        document.getElementById('jpStatus').textContent = displayStatus(activeJob.printStatus);
+        document.getElementById('jpStatusBadge').className = displayStatusClass(activeJob.printStatus);
+      }).catch(()=>{});
+    }
+  }
+});
+
 (async () => {
   await refreshPrinters();
   updateSoundIcon();
   renderQueue();
-  console.log('🔄 Initial sync…');
   await syncOrdersFromDrive();
   if (autoSyncEnabled) startAutoSync();
   else {
