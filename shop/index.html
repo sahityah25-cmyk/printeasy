@@ -365,37 +365,49 @@
 </div>
 
 <!-- Viewer Modal -->
-<div id="viewerModal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-6">
-  <div class="bg-white rounded-3xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden fade-up shadow-2xl">
-    <div class="flex items-center justify-between p-5 border-b border-purple-100">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-pink-100 flex items-center justify-center">
+<div id="viewerModal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4 sm:p-6">
+  <div class="bg-white rounded-3xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden fade-up shadow-2xl">
+    <div class="flex items-center justify-between p-4 sm:p-5 border-b border-purple-100 gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-10 h-10 rounded-xl bg-pink-100 flex items-center justify-center flex-shrink-0">
           <i id="viewerIcon" data-lucide="file-text" class="w-5 h-5 text-pink-500"></i>
         </div>
-        <div>
-          <p id="viewerName" class="font-medium text-sm text-slate-800">document.pdf</p>
+        <div class="min-w-0">
+          <p id="viewerName" class="font-medium text-sm text-slate-800 truncate">document.pdf</p>
           <p id="viewerMeta" class="text-xs text-slate-500">—</p>
         </div>
       </div>
-      <div class="flex items-center gap-2">
-        <button onclick="zoomViewer(-1)" class="p-2 rounded-xl hover:bg-purple-100 transition text-slate-700">
+      <div class="flex items-center gap-1.5 flex-shrink-0">
+        <span id="viewerCounter" class="hidden text-[11px] px-2 py-1 rounded-full bg-purple-50 text-purple-700 font-medium mr-1">1 / 1</span>
+        <button onclick="viewerPrevious()" id="viewerPrevBtn" class="p-2 rounded-xl hover:bg-purple-100 transition text-slate-700 disabled:opacity-30" title="Previous file">
+          <i data-lucide="chevron-left" class="w-4 h-4"></i>
+        </button>
+        <button onclick="viewerNext()" id="viewerNextBtn" class="p-2 rounded-xl hover:bg-purple-100 transition text-slate-700 disabled:opacity-30" title="Next file">
+          <i data-lucide="chevron-right" class="w-4 h-4"></i>
+        </button>
+        <button onclick="zoomViewer(-1)" class="p-2 rounded-xl hover:bg-purple-100 transition text-slate-700" title="Zoom out">
           <i data-lucide="zoom-out" class="w-4 h-4"></i>
         </button>
         <span id="viewerZoom" class="text-xs text-slate-500 w-12 text-center">100%</span>
-        <button onclick="zoomViewer(1)" class="p-2 rounded-xl hover:bg-purple-100 transition text-slate-700">
+        <button onclick="zoomViewer(1)" class="p-2 rounded-xl hover:bg-purple-100 transition text-slate-700" title="Zoom in">
           <i data-lucide="zoom-in" class="w-4 h-4"></i>
         </button>
-        <button onclick="closeViewer()" class="ml-2 p-2 rounded-xl hover:bg-pink-100 transition text-slate-700">
+        <button onclick="closeViewer()" class="ml-1 p-2 rounded-xl hover:bg-pink-100 transition text-slate-700" title="Close">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
     </div>
-    <div class="flex-1 overflow-auto bg-slate-100 flex items-start justify-center p-6 scroll">
+    <div class="flex-1 overflow-auto bg-slate-100 flex items-start justify-center p-4 sm:p-6 scroll">
       <div id="viewerContent" class="transition-transform duration-200 origin-top"></div>
     </div>
-    <div class="p-4 border-t border-purple-100 flex items-center justify-between text-xs text-slate-500">
-      <span>🔒 Preview only</span>
-      <button onclick="closeViewer()" class="px-4 py-2 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-700 text-sm">Close</button>
+    <div class="p-3 sm:p-4 border-t border-purple-100 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+      <span id="viewerStatusText">🔒 Preview only</span>
+      <div class="flex items-center gap-2">
+        <button onclick="printViewerFile()" class="grad-btn text-white px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2">
+          <i data-lucide="printer" class="w-4 h-4"></i> Print File
+        </button>
+        <button onclick="closeViewer()" class="px-4 py-2 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-700 text-sm">Close</button>
+      </div>
     </div>
   </div>
 </div>
@@ -424,6 +436,8 @@ let activeJob = null;
 let activeFiles = [];
 let editedValues = {};
 let viewerZoomLevel = 1;
+let viewerFileIndex = -1;
+let printSession = null;
 let autoRouting = true;
 let soundEnabled = localStorage.getItem(SOUND_KEY) !== 'false';
 let autoSyncEnabled = localStorage.getItem(AUTOSYNC_KEY) !== 'false';
@@ -443,13 +457,32 @@ const writeDB = (db) => { try { localStorage.setItem(DB_KEY, JSON.stringify(db))
 function showLoader(){ document.getElementById('topLoader')?.classList.remove('hidden'); }
 function hideLoader(){ document.getElementById('topLoader')?.classList.add('hidden'); }
 
+function fileStateKey(file, index) {
+  return String(file?.fileId || file?.driveId || file?.id || file?.url || file?.downloadUrl || file?.name || `index-${index}`);
+}
+
+function mergeFilePrintState(serverFiles, localFiles) {
+  const old = Array.isArray(localFiles) ? localFiles : [];
+  const oldMap = new Map(old.map((f,i) => [fileStateKey(f,i), f]));
+  return (serverFiles || []).map((f,i) => {
+    const previous = oldMap.get(fileStateKey(f,i)) || old[i] || {};
+    return {
+      ...f,
+      localPrintStatus: previous.localPrintStatus || f.localPrintStatus || 'waiting',
+      printOpenedAt: previous.printOpenedAt || f.printOpenedAt || null,
+      printConfirmedAt: previous.printConfirmedAt || f.printConfirmedAt || null,
+      printError: previous.printError || f.printError || ''
+    };
+  });
+}
+
 function mergeOrder(serverO) {
   const db = readDB();
   const local = db[serverO.orderId] || {};
-  return {
-    ...local, ...serverO,
-    files: (serverO.files && serverO.files.length) ? serverO.files : (local.files || [])
-  };
+  const files = (serverO.files && serverO.files.length)
+    ? mergeFilePrintState(serverO.files, local.files)
+    : (local.files || []);
+  return { ...local, ...serverO, files };
 }
 
 /* ── Queue clear helpers ── */
@@ -969,9 +1002,7 @@ async function selectOrder(id, opts = {}) {
 
   const btn = document.getElementById('printBtn');
   btn.disabled = false;
-  btn.onclick = sendToPrinter;
-  btn.innerHTML = '<i data-lucide="printer" class="w-5 h-5"></i> Send to Printer';
-  lucide.createIcons();
+  setPrintButtonForCurrentState();
   renderQueue();
   startActiveOrderPoller();
 
@@ -1046,6 +1077,7 @@ function startActiveOrderPoller() {
         db[fresh.id] = mergeOrder(fresh);
         writeDB(db);
         activeJob = db[fresh.id];
+        activeFiles = activeJob.files || [];
         document.getElementById('jpStatus').textContent = displayStatus(activeJob.printStatus);
         document.getElementById('jpStatusBadge').className = displayStatusClass(activeJob.printStatus);
         if (fresh.files?.length && JSON.stringify(fresh.files) !== JSON.stringify(activeFiles)) {
@@ -1113,54 +1145,118 @@ function getViewerUrl(file) {
   return raw;
 }
 
+function filePrintStatus(file) {
+  const s = String(file?.localPrintStatus || file?.status || 'waiting').toLowerCase();
+  if (['printed','confirmed','done'].includes(s)) return 'printed';
+  if (['opened','printing'].includes(s)) return 'opened';
+  if (['failed','error'].includes(s)) return 'failed';
+  if (s === 'skipped') return 'skipped';
+  return 'waiting';
+}
+
+function fileStatusLabel(file) {
+  const s = filePrintStatus(file);
+  return {waiting:'Ready', opened:'Print opened', printed:'Printed', failed:'Failed', skipped:'Skipped'}[s] || 'Ready';
+}
+
+function fileStatusClass(file) {
+  const s = filePrintStatus(file);
+  return {
+    waiting:'bg-amber-100 text-amber-700',
+    opened:'bg-blue-100 text-blue-700',
+    printed:'bg-green-100 text-green-700',
+    failed:'bg-red-100 text-red-700',
+    skipped:'bg-slate-100 text-slate-500'
+  }[s] || 'bg-amber-100 text-amber-700';
+}
+
+function getPrintableFiles() {
+  return activeFiles.filter(f => !!getFileUrl(f));
+}
+
+function saveActiveJobLocal() {
+  if (!activeJob) return;
+  const db = readDB();
+  db[activeJob.id] = activeJob;
+  writeDB(db);
+}
+
+function updateFileLocalState(index, status, extra = {}) {
+  if (!activeJob?.files?.[index]) return;
+  activeJob.files[index] = {
+    ...activeJob.files[index],
+    localPrintStatus: status,
+    ...(status === 'opened' ? {printOpenedAt: Date.now()} : {}),
+    ...(status === 'printed' ? {printConfirmedAt: Date.now()} : {}),
+    ...extra
+  };
+  activeFiles = activeJob.files;
+  saveActiveJobLocal();
+  renderActiveFiles();
+  updatePrintProgress();
+}
+
 function renderActiveFiles() {
   const wrap = document.getElementById('jpFilesList');
   activeFiles = activeJob?.files || [];
   if (!activeFiles.length) {
     wrap.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">No files (fetch this order to load them)</p>';
+    updatePrintProgress();
     return;
   }
+
   wrap.innerHTML = activeFiles.map((f, i) => {
     const isImg = isImageFile(f);
-    const status = f.status || 'waiting';
-    const statusStyle = {
-      waiting:'bg-amber-100 text-amber-700', printing:'bg-blue-100 text-blue-700',
-      printed:'bg-green-100 text-green-700', skipped:'bg-slate-100 text-slate-500'
-    }[status] || 'bg-amber-100 text-amber-700';
     const fileUrl = getFileUrl(f);
     const hasUrl = !!fileUrl;
+    const status = filePrintStatus(f);
+    const statusText = fileStatusLabel(f);
+    const statusStyle = fileStatusClass(f);
+    const printButton = hasUrl ? `
+      <button onclick="event.stopPropagation();printOrderFile(${i})" class="p-2 rounded-lg hover:bg-purple-100 text-purple-600 flex-shrink-0" title="Print this file">
+        <i data-lucide="printer" class="w-4 h-4"></i>
+      </button>` : '';
+    const confirmButton = hasUrl && status !== 'printed' ? `
+      <button onclick="event.stopPropagation();markFilePrinted(${i})" class="text-[10px] px-2 py-1 rounded-lg bg-green-50 hover:bg-green-100 text-green-700 font-medium whitespace-nowrap">Mark printed</button>` : '';
+    const retryButton = status === 'failed' ? `
+      <button onclick="event.stopPropagation();printOrderFile(${i})" class="text-[10px] px-2 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 font-medium">Retry</button>` : '';
+    const view = hasUrl ? `
+      <button onclick="event.stopPropagation();viewOrderFile(${i})" class="p-2 rounded-lg hover:bg-pink-100 text-pink-600 flex-shrink-0" title="View ${escapeAttr(f.name || 'file')}">
+        <i data-lucide="eye" class="w-4 h-4"></i>
+      </button>
+      <a href="${escapeAttr(fileUrl)}" target="_blank" rel="noopener" class="p-2 rounded-lg hover:bg-purple-100 text-purple-600 flex-shrink-0" title="Open file">
+        <i data-lucide="external-link" class="w-4 h-4"></i>
+      </a>` : '<span class="text-[10px] text-slate-400 px-2 py-1 rounded bg-slate-100">No file link</span>';
 
-    const view = hasUrl
-      ? `<button onclick="event.stopPropagation();viewOrderFile(${i})" class="p-2 rounded-lg hover:bg-pink-100 text-pink-600 flex-shrink-0" title="View ${escapeHTML(f.name || 'file')}">
-           <i data-lucide="eye" class="w-4 h-4"></i>
-         </button>
-         <a href="${fileUrl}" target="_blank" rel="noopener" class="p-2 rounded-lg hover:bg-purple-100 text-purple-600 flex-shrink-0" title="Open file">
-           <i data-lucide="external-link" class="w-4 h-4"></i>
-         </a>`
-      : `<span class="text-[10px] text-slate-400 px-2 py-1 rounded bg-slate-100">no preview</span>`;
-
-    return `<div class="flex items-center gap-3 p-3 rounded-xl bg-purple-50 border border-purple-100">
-      <div class="w-10 h-10 rounded-xl ${isImg ? 'bg-pink-100' : 'bg-purple-100'} flex items-center justify-center flex-shrink-0">
-        <i data-lucide="${isImg ? 'image' : 'file-text'}" class="w-5 h-5 ${isImg ? 'text-pink-500' : 'text-purple-600'}"></i>
+    return `<div class="p-3 rounded-xl bg-purple-50 border border-purple-100">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl ${isImg ? 'bg-pink-100' : 'bg-purple-100'} flex items-center justify-center flex-shrink-0">
+          <i data-lucide="${isImg ? 'image' : 'file-text'}" class="w-5 h-5 ${isImg ? 'text-pink-500' : 'text-purple-600'}"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="font-medium text-sm truncate text-slate-800">${escapeHTML(f.name || 'File')}</p>
+          <p class="text-xs text-slate-400">${f.size ? (f.size/1048576).toFixed(2)+' MB' : '—'} · ${escapeHTML(f.type || 'file')}</p>
+        </div>
+        <span class="text-[10px] px-2 py-0.5 rounded-full ${statusStyle} flex-shrink-0">${statusText}</span>
       </div>
-      <div class="flex-1 min-w-0">
-        <p class="font-medium text-sm truncate text-slate-800">${escapeHTML(f.name || 'File')}</p>
-        <p class="text-xs text-slate-400">${f.size ? (f.size/1048576).toFixed(2)+' MB' : '—'} · ${escapeHTML(f.type || 'file')}</p>
+      <div class="flex items-center justify-end gap-1 mt-2">
+        ${view}${printButton}${confirmButton}${retryButton}
       </div>
-      <span class="text-[10px] px-2 py-0.5 rounded-full ${statusStyle} flex-shrink-0">${escapeHTML(status)}</span>
-      <div class="flex items-center gap-1">${view}</div>
     </div>`;
   }).join('');
   lucide.createIcons();
+  updatePrintProgress();
 }
 
 function viewOrderFile(i) {
-  const file = activeFiles[i];
-  if (!file) return toast('File unavailable');
-  viewOrderFileByObj(file);
+  if (!activeFiles[i]) return toast('File unavailable');
+  viewerFileIndex = i;
+  renderViewerFile();
 }
 
-function viewOrderFileByObj(file) {
+function renderViewerFile() {
+  const file = activeFiles[viewerFileIndex];
+  if (!file) return closeViewer();
   const fileUrl = getFileUrl(file);
   const viewerUrl = getViewerUrl(file);
   if (!viewerUrl) return toast('File link unavailable');
@@ -1171,53 +1267,56 @@ function viewOrderFileByObj(file) {
   const isImg = isImageFile(file);
 
   document.getElementById('viewerName').textContent = file.name || 'File';
-  document.getElementById('viewerMeta').textContent = type || (isImg ? 'Image preview' : 'File preview');
+  document.getElementById('viewerMeta').textContent = `${type || (isImg ? 'Image' : 'File')} · ${viewerFileIndex + 1} of ${activeFiles.length}`;
+  document.getElementById('viewerCounter').textContent = `${viewerFileIndex + 1} / ${activeFiles.length}`;
+  document.getElementById('viewerCounter').classList.toggle('hidden', activeFiles.length < 2);
+  document.getElementById('viewerPrevBtn').disabled = viewerFileIndex <= 0;
+  document.getElementById('viewerNextBtn').disabled = viewerFileIndex >= activeFiles.length - 1;
+  document.getElementById('viewerStatusText').textContent = `Status: ${fileStatusLabel(file)} · Browser printing requires confirmation`;
 
   const c = document.getElementById('viewerContent');
   c.innerHTML = '';
   viewerZoomLevel = 1;
-  applyZoom();
 
   if (isPdf) {
-    c.innerHTML = `<iframe src="${viewerUrl}"
-        class="w-[min(88vw,900px)] h-[70vh] rounded-xl bg-white border border-slate-200"
-        title="PDF preview"></iframe>
-      <div class="mt-3 text-center">
-        <a href="${viewerUrl}" target="_blank" rel="noopener"
-           class="text-sm text-purple-600 underline">Open PDF viewer</a>
-      </div>`;
+    c.innerHTML = `<div class="flex flex-col items-center">
+      <iframe src="${escapeAttr(viewerUrl)}" class="w-[min(88vw,900px)] h-[70vh] rounded-xl bg-white border border-slate-200" title="PDF preview"></iframe>
+      <a href="${escapeAttr(viewerUrl)}" target="_blank" rel="noopener" class="mt-3 text-sm text-purple-600 underline">Open PDF viewer</a>
+    </div>`;
   } else if (isImg) {
-    c.innerHTML = `
-      <div class="flex flex-col items-center max-w-[92vw]">
-        <div class="relative flex items-center justify-center min-h-[160px] max-w-full">
-          <img id="fileImagePreview"
-               src="${getImagePreviewUrl(file)}"
-               alt="${escapeHTML(file.name || 'Image')}"
-               class="max-w-full max-h-[70vh] rounded-xl shadow object-contain bg-white"
-               referrerpolicy="no-referrer"
-               onerror="this.classList.add('hidden');document.getElementById('fileImageError')?.classList.remove('hidden');" />
-          <div id="fileImageError" class="hidden p-8 text-center bg-white rounded-2xl border border-slate-200">
-            <i data-lucide="image-off" class="w-12 h-12 mx-auto text-amber-500"></i>
-            <p class="mt-3 font-medium text-slate-700">Image preview could not be loaded</p>
-            <p class="mt-1 text-sm text-slate-400">The file may require access permission.</p>
-          </div>
+    c.innerHTML = `<div class="flex flex-col items-center max-w-[92vw]">
+      <div class="relative flex items-center justify-center min-h-[160px] max-w-full">
+        <img id="fileImagePreview" src="${escapeAttr(getImagePreviewUrl(file))}" alt="${escapeAttr(file.name || 'Image')}" class="max-w-full max-h-[70vh] rounded-xl shadow object-contain bg-white" referrerpolicy="no-referrer" onerror="this.classList.add('hidden');document.getElementById('fileImageError')?.classList.remove('hidden');" />
+        <div id="fileImageError" class="hidden p-8 text-center bg-white rounded-2xl border border-slate-200">
+          <i data-lucide="image-off" class="w-12 h-12 mx-auto text-amber-500"></i>
+          <p class="mt-3 font-medium text-slate-700">Image preview could not be loaded</p>
+          <p class="mt-1 text-sm text-slate-400">The file may require access permission.</p>
         </div>
-        <div class="mt-3 flex items-center gap-3">
-          <a href="${fileUrl}" target="_blank" rel="noopener"
-             class="text-sm text-purple-600 underline">Open image</a>
-        </div>
-      </div>`;
+      </div>
+      <a href="${escapeAttr(fileUrl)}" target="_blank" rel="noopener" class="mt-3 text-sm text-purple-600 underline">Open image</a>
+    </div>`;
   } else {
-    c.innerHTML = `<iframe src="${viewerUrl}"
-        class="w-[min(88vw,900px)] h-[70vh] rounded-xl bg-white border border-slate-200"
-        title="File preview"></iframe>
-      <div class="mt-3 text-center">
-        <a class="inline-block text-purple-600 underline" href="${fileUrl}" target="_blank" rel="noopener">Open original file</a>
-      </div>`;
+    c.innerHTML = `<div class="flex flex-col items-center">
+      <iframe src="${escapeAttr(viewerUrl)}" class="w-[min(88vw,900px)] h-[70vh] rounded-xl bg-white border border-slate-200" title="File preview"></iframe>
+      <a href="${escapeAttr(fileUrl)}" target="_blank" rel="noopener" class="mt-3 text-sm text-purple-600 underline">Open original file</a>
+    </div>`;
   }
 
   document.getElementById('viewerModal').classList.remove('hidden');
+  applyZoom();
   lucide.createIcons();
+}
+
+function viewerPrevious() {
+  if (viewerFileIndex > 0) { viewerFileIndex--; renderViewerFile(); }
+}
+function viewerNext() {
+  if (viewerFileIndex < activeFiles.length - 1) { viewerFileIndex++; renderViewerFile(); }
+}
+
+function printViewerFile() {
+  if (viewerFileIndex < 0) return toast('No file selected');
+  printOrderFile(viewerFileIndex);
 }
 
 function onEdit() {
@@ -1243,24 +1342,132 @@ function renderEditToggles() {
   });
 }
 
-/* ── printAllFiles (now defined!) ──
-   Opens each file's download URL in a new tab. The shopkeeper prints via
-   the browser's print dialog. Uses staggered timing so popup blockers
-   allow the tabs. */
+function openFileForPrint(file) {
+  const url = getFileUrl(file);
+  if (!url) return null;
+  try {
+    const win = window.open('', '_blank');
+    if (!win) return null;
+    const safeUrl = escapeAttr(url);
+    const isImg = isImageFile(file);
+    const name = escapeHTML(file.name || 'Print file');
+    if (isImg) {
+      win.document.write(`<!doctype html><html><head><title>${name}</title><style>html,body{margin:0;background:#fff}img{display:block;max-width:100%;width:auto;height:auto;margin:0 auto}@media print{img{max-width:100%;page-break-inside:avoid}}</style></head><body><img src="${safeUrl}" onload="setTimeout(()=>window.print(),300)" onerror="document.body.innerHTML='<p style=\"font-family:Arial;padding:30px\">Unable to load image. Use the browser print option.</p>'"></body></html>`);
+      win.document.close();
+    } else {
+      win.location.href = url;
+    }
+    return win;
+  } catch (e) {
+    return null;
+  }
+}
+
+function printOrderFile(index) {
+  const file = activeFiles[index];
+  if (!file) return toast('File unavailable');
+  const url = getFileUrl(file);
+  if (!url) return toast('This file has no printable link');
+  const win = openFileForPrint(file);
+  if (!win) {
+    updateFileLocalState(index, 'failed', {printError:'Popup blocked'});
+    return toast('⚠️ Allow pop-ups to print this file');
+  }
+  updateFileLocalState(index, 'opened', {printError:''});
+  toast(`🖨️ ${file.name || 'File'} opened for printing`);
+}
+
+function markFilePrinted(index) {
+  const file = activeFiles[index];
+  if (!file) return;
+  if (filePrintStatus(file) === 'waiting') {
+    return toast('Print the file first, then confirm it as printed');
+  }
+  updateFileLocalState(index, 'printed');
+  toast(`✅ ${file.name || 'File'} marked printed`);
+}
+
+function markAllFilesPrinted() {
+  const printable = getPrintableFiles();
+  if (!printable.length) return toast('No printable files');
+  const notOpened = printable.filter(f => filePrintStatus(f) === 'waiting');
+  if (notOpened.length) return toast(`Print/open ${notOpened.length} remaining file(s) first`);
+  activeJob.files = activeJob.files.map(f => {
+    const url = getFileUrl(f);
+    if (!url) return f;
+    return {...f, localPrintStatus:'printed', printConfirmedAt:Date.now(), printError:''};
+  });
+  activeFiles = activeJob.files;
+  saveActiveJobLocal();
+  renderActiveFiles();
+  toast('✅ All printable files marked printed');
+}
+
 function printAllFiles() {
-  const urls = activeFiles.map(getFileUrl).filter(Boolean);
-  if (!urls.length) { toast('No printable files'); return; }
-  let i = 0;
-  const openNext = () => {
-    if (i >= urls.length) return;
-    try {
-      const w = window.open(urls[i], '_blank', 'noopener');
-      if (!w) toast('Allow pop-ups to print all files at once');
-    } catch (e) {}
-    i++;
-    if (i < urls.length) setTimeout(openNext, 250);
-  };
-  openNext();
+  const printable = getPrintableFiles();
+  if (!printable.length) { toast('No printable files'); return false; }
+
+  let opened = 0;
+  printable.forEach((file, i) => {
+    const index = activeFiles.indexOf(file);
+    const win = openFileForPrint(file);
+    if (win) {
+      opened++;
+      updateFileLocalState(index, 'opened', {printError:''});
+    } else {
+      updateFileLocalState(index, 'failed', {printError:'Popup blocked'});
+    }
+  });
+  toast(opened === printable.length
+    ? `🖨️ ${opened} file(s) opened for printing`
+    : `⚠️ ${opened}/${printable.length} file(s) opened — allow pop-ups and retry failed files`);
+  return opened > 0;
+}
+
+function updatePrintProgress() {
+  const wrap = document.getElementById('printProgress');
+  if (!wrap || !activeJob) return;
+  const files = getPrintableFiles();
+  if (!files.length) {
+    wrap.classList.add('hidden');
+    return;
+  }
+  const printed = files.filter(f => filePrintStatus(f) === 'printed').length;
+  const opened = files.filter(f => filePrintStatus(f) === 'opened').length;
+  const failed = files.filter(f => filePrintStatus(f) === 'failed').length;
+  const pct = Math.round((printed / files.length) * 100);
+  const bar = document.getElementById('progressBar');
+  const pctEl = document.getElementById('progressPct');
+  const lbl = document.getElementById('progressLabel');
+  wrap.classList.remove('hidden');
+  bar.style.width = pct + '%';
+  pctEl.textContent = pct + '%';
+  lbl.textContent = `${printed}/${files.length} confirmed printed${opened ? ` · ${opened} awaiting confirmation` : ''}${failed ? ` · ${failed} failed` : ''}`;
+}
+
+function allPrintableFilesConfirmed() {
+  const files = getPrintableFiles();
+  return files.length > 0 && files.every(f => filePrintStatus(f) === 'printed');
+}
+
+function setPrintButtonForCurrentState() {
+  const btn = document.getElementById('printBtn');
+  if (!btn) return;
+  const status = String(activeJob?.printStatus || 'waiting').toLowerCase();
+  if (['printed','collected','done','completed'].includes(status)) {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="check-circle-2" class="w-5 h-5"></i> Mark Collected';
+    btn.onclick = markCollected;
+  } else if (allPrintableFilesConfirmed()) {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="check-circle-2" class="w-5 h-5"></i> Mark Printed';
+    btn.onclick = markPrinted;
+  } else {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="printer" class="w-5 h-5"></i> Print All Files';
+    btn.onclick = printAllFiles;
+  }
+  lucide.createIcons();
 }
 
 async function sendToPrinter() {
@@ -1270,6 +1477,7 @@ async function sendToPrinter() {
     : detectedPrinters.find(p => p.id === document.getElementById('manualPrinter').value);
   if (!printer) return toast('❌ No suitable printer — check Setup');
   if (editedValues.color && !printer.capabilities?.color) return toast(`❌ ${printer.name} does not support colour`);
+  if (!getPrintableFiles().length) return toast('❌ This order has no printable files');
 
   sendInFlight = true;
   const btn = document.getElementById('printBtn');
@@ -1278,40 +1486,29 @@ async function sendToPrinter() {
   lucide.createIcons();
 
   const changes = {
-    status:'printing', copies:editedValues.copies,
-    color:editedValues.color, duplex:editedValues.duplex,
+    status:'printing', copies:editedValues.copies, color:editedValues.color, duplex:editedValues.duplex,
     price: editedValues.price === '' ? 0 : editedValues.price,
-    priceFinal: editedValues.price === '' ? null : editedValues.price,
-    notes: editedValues.notes,
-    printer: printer.name, printerId: printer.id
+    priceFinal: editedValues.price === '' ? null : editedValues.price, notes:editedValues.notes,
+    printer:printer.name, printerId:printer.id
   };
 
   try {
     const r = await updateServerOrder(activeJob.id, changes);
     if (!r.success) throw new Error(r.error || 'Unable to start');
-    activeJob = normalizeServerOrder(r.order);
+    activeJob = mergeOrder(normalizeServerOrder(r.order));
     const db = readDB(); db[activeJob.id] = activeJob; writeDB(db);
+    activeFiles = activeJob.files || [];
     document.getElementById('jpStatus').textContent = 'printing';
     document.getElementById('jpStatusBadge').className = statusBadgeClass('printing');
-    renderActiveFiles(); renderQueue();
-
-    const wrap = document.getElementById('printProgress');
-    const bar = document.getElementById('progressBar');
-    const pct = document.getElementById('progressPct');
-    const lbl = document.getElementById('progressLabel');
-    wrap.classList.remove('hidden');
+    renderActiveFiles();
+    renderQueue();
     printAllFiles();
-    bar.style.width = '100%'; pct.textContent = '100%';
-    lbl.textContent = 'Files opened. Print them, then click Mark Printed.';
-
-    btn.disabled = false;
-    btn.innerHTML = '<i data-lucide="check-circle-2" class="w-5 h-5"></i> Mark Printed';
-    btn.onclick = markPrinted;
-    lucide.createIcons();
+    setPrintButtonForCurrentState();
   } catch (e) {
     toast('❌ ' + e.message);
     btn.disabled = false;
     btn.innerHTML = '<i data-lucide="printer" class="w-5 h-5"></i> Send to Printer';
+    btn.onclick = sendToPrinter;
     lucide.createIcons();
   } finally {
     sendInFlight = false;
@@ -1320,22 +1517,23 @@ async function sendToPrinter() {
 
 async function markPrinted() {
   if (!activeJob || sendInFlight) return;
+  if (!allPrintableFilesConfirmed()) return toast('Confirm every printable file as printed first');
   sendInFlight = true;
   const btn = document.getElementById('printBtn');
   btn.disabled = true;
   try {
     const r = await updateServerOrder(activeJob.id, {status:'printed'});
-    activeJob = normalizeServerOrder(r.order);
-    const db = readDB(); db[activeJob.id] = activeJob; writeDB(db);
+    if (!r.success) throw new Error(r.error || 'Unable to mark printed');
+    activeJob = mergeOrder(normalizeServerOrder(r.order));
+    activeJob.files = mergeFilePrintState(activeJob.files, activeFiles).map(f => ({...f, localPrintStatus:'printed'}));
+    activeFiles = activeJob.files;
+    saveActiveJobLocal();
     document.getElementById('jpStatus').textContent = 'printed';
     document.getElementById('jpStatusBadge').className = displayStatusClass('printed');
     renderActiveFiles();
     announceReady(activeJob.displayCode);
-    btn.disabled = false;
-    btn.innerHTML = '<i data-lucide="check-circle-2" class="w-5 h-5"></i> Mark Collected';
-    btn.onclick = markCollected;
-    lucide.createIcons();
-    toast('✅ Marked ready for collection');
+    setPrintButtonForCurrentState();
+    toast('✅ Order marked ready for collection');
     renderQueue();
   } catch (e) {
     btn.disabled = false;
@@ -1475,6 +1673,10 @@ function applyZoom() {
 }
 
 document.addEventListener('keydown', (e) => {
+  if (!document.getElementById('viewerModal').classList.contains('hidden')) {
+    if (e.key === 'ArrowLeft') { e.preventDefault(); viewerPrevious(); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); viewerNext(); }
+  }
   if (e.key === 'Escape') {
     if (!document.getElementById('setupModal').classList.contains('hidden')) closeSetup();
     if (!document.getElementById('qrModal').classList.contains('hidden')) closeQR();
@@ -1490,6 +1692,8 @@ document.addEventListener('visibilitychange', () => {
       fetchFreshOrder(activeJob.id).then(fresh => {
         const db = readDB(); db[fresh.id] = mergeOrder(fresh); writeDB(db);
         activeJob = db[fresh.id];
+        activeFiles = activeJob.files || [];
+        renderActiveFiles();
         document.getElementById('jpStatus').textContent = displayStatus(activeJob.printStatus);
         document.getElementById('jpStatusBadge').className = displayStatusClass(activeJob.printStatus);
       }).catch(()=>{});
@@ -1515,6 +1719,12 @@ window.clearOrderSearch = clearOrderSearch;
 window.deselectOrder = deselectOrder;
 window.reprintOrder = reprintOrder;
 window.viewOrderFile = viewOrderFile;
+window.printOrderFile = printOrderFile;
+window.markFilePrinted = markFilePrinted;
+window.markAllFilesPrinted = markAllFilesPrinted;
+window.viewerPrevious = viewerPrevious;
+window.viewerNext = viewerNext;
+window.printViewerFile = printViewerFile;
 </script>
 </body>
 </html>
